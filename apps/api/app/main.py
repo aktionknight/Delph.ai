@@ -19,6 +19,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from .database import Record, make_engine, make_sessions
 from .generation import ASSET_TYPES, DEFAULT_TYPES, DeterministicRouter
+from .limits import BodyLimitMiddleware
 from .schemas import (ApprovalInput, AssetInput, BrandInput, BrandPatch, CampaignInput,
                       DirectionInput, EditInput, ExperimentInput, PublishInput,
                       RegenerateInput, SourceInput)
@@ -55,6 +56,7 @@ def create_app(database_url=None):
 
     app = FastAPI(title="Campaign Launchpad — local demo", lifespan=lifespan)
     app.state.sessions = sessions
+    app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:3000"), "http://127.0.0.1:3000"], allow_methods=["GET", "POST", "PATCH"], allow_headers=["Content-Type"])
 
     @app.exception_handler(RequestValidationError)

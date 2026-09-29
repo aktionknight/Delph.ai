@@ -84,11 +84,11 @@ class DeterministicRouter:
             maximum = {"x": 280, "linkedin": 3000, "instagram": 2200}[asset["platform"]]
             platform_fit = len(combined) <= maximum
         checks = {
-            "source_grounding": bool(refs) and all(r in available for r in refs),
+            "source_references_valid": bool(refs) and all(r in available for r in refs),
             "claim_safety": not unsafe and numbers <= evidence_numbers,
             "brand_fit": not any(p.lower() in lower for p in brand["forbidden_phrases"]),
             "platform_fit": platform_fit,
             "completeness": all(content.get(k, "").strip() for k in ("hook", "body", "cta")),
         }
-        messages = {"source_grounding": "No valid factual source references were provided.", "claim_safety": "Unsupported numeric or absolute claim detected; remove it or provide approved evidence.", "brand_fit": "Content contains a forbidden brand phrase.", "platform_fit": "Content exceeds platform character limits.", "completeness": "Hook, body, and CTA are required."}
+        messages = {"source_references_valid": "No valid factual source references were provided.", "claim_safety": "Unsupported numeric or absolute claim detected; remove it or provide approved evidence.", "brand_fit": "Content contains a forbidden brand phrase.", "platform_fit": "Content exceeds platform character limits.", "completeness": "Hook, body, and CTA are required."}
         return {"passed": all(checks.values()), "issues": [messages[k] for k, passed in checks.items() if not passed], "checks": checks}

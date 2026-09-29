@@ -151,6 +151,7 @@ def test_source_uploads_and_bounds(client):
     assert client.post(url, files={"file": ("bad.pdf", b"not a pdf", "application/pdf")}).status_code == 422
     assert client.post(url, files={"file": ("bad.exe", b"test", "application/octet-stream")}).status_code == 415
     assert client.post(url, files={"file": ("big.txt", b"a" * (5 * 1024 * 1024 + 1), "text/plain")}).status_code == 413
+    assert client.post(url, content=b"a" * (6 * 1024 * 1024), headers={"Content-Type": "multipart/form-data; boundary=invalid"}).status_code == 413
     assert client.post(url, files={"file": ("empty.txt", b" ", "text/plain")}).status_code == 422
 
 
