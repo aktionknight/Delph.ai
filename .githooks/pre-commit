@@ -1,0 +1,11 @@
+#!/bin/sh
+# Install with: git config core.hooksPath .githooks
+if command -v python3 >/dev/null 2>&1 && python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' 2>/dev/null; then
+    exec python3 scripts/check_commit_docs.py --staged
+elif command -v python >/dev/null 2>&1 && python -c 'import sys; sys.exit(sys.version_info < (3, 10))' 2>/dev/null; then
+    exec python scripts/check_commit_docs.py --staged
+elif command -v py >/dev/null 2>&1; then
+    exec py -3 scripts/check_commit_docs.py --staged
+fi
+echo 'Python 3.10+ is required to check mandatory commit documentation.' >&2
+exit 1

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Git can invoke this before MERGE_HEAD exists. A branch's inherited records
+# must never be mistaken for the merge's own new records.
+echo 'Merge prepared. Add and stage a new matching context/audit pair, then run git commit.' >&2
+exit 1
