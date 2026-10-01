@@ -66,7 +66,8 @@ def social_routes(repository, auth, accounts, publisher, session, get, campaign_
                 result = "connected"
             except SocialError:
                 pass
-        response = RedirectResponse(os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/") + f"/settings/integrations?oauth={result}&platform={platform}", status_code=303)
+        frontend_url = os.getenv("FRONTEND_URL_PRODUCTION") or os.getenv("FRONTEND_URL", "http://localhost:3000")
+        response = RedirectResponse(frontend_url.rstrip("/") + f"/settings/integrations?oauth={result}&platform={platform}", status_code=303)
         response.delete_cookie(f"social_oauth_{platform}", path="/")
         response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
         return response
