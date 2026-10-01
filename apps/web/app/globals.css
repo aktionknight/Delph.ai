@@ -1723,7 +1723,7 @@ input[type="checkbox"]:checked::before {
   flex-direction: column;
   gap: 1rem;
 }
-.history-list details {
+.history-list details, .guide-step {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   padding: 1rem;
@@ -1735,7 +1735,7 @@ input[type="checkbox"]:checked::before {
   align-items: center;
   cursor: pointer;
 }
-.history-list h4 { margin: 1rem 0 0.5rem; }
+.history-list h4, .guide-step h4 { margin: 0 0 0.5rem; }
 .pre-wrap {
   white-space: pre-wrap;
   color: var(--text-secondary);

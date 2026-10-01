@@ -21,7 +21,7 @@ export function Launchpad() {
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to main content</a>
     <aside className="sidebar">
-      <Link href="/" className="brand-logo"><span className="logo-mark"><img src="/logo.png" alt="Delph.ai Logo" width={22} height={22} style={{ objectFit: 'contain' }} /></span><span>Delph.ai</span></Link>
+      <Link href="/" className="brand-logo"><span className="logo-mark"><img src="/logo.png" alt="Delph.ai Logo" width={36} height={36} style={{ objectFit: 'contain' }} /></span><span>Delph.ai</span></Link>
       <div className="workspace-picker"><span className="workspace-avatar">CL</span><div><strong>Campaign workspace</strong><small>Your campaign workspace</small></div></div>
       <p className="nav-label">WORKSPACE</p>
       <nav aria-label="Main navigation"><Link href="/" className={path === "/" ? "nav-link active" : "nav-link"}><LayoutDashboard size={18} /> Overview</Link><Link href="/campaigns" className={path.startsWith("/campaigns") ? "nav-link active" : "nav-link"}><FolderKanban size={18} /> Campaigns<span className="nav-count">{campaigns.data?.length ?? "—"}</span></Link><Link href="/brands" className={path.startsWith("/brands") ? "nav-link active" : "nav-link"}><Brain size={18} /> Brand Brain</Link><Link href="/profile" className={path === "/profile" ? "nav-link active" : "nav-link"}><User size={18} /> Profile</Link></nav>
@@ -48,26 +48,26 @@ function Dashboard({ campaigns, loading, error, retry }: { campaigns: Campaign[]
           <h3>How to use the Application</h3>
           <p className="muted" style={{ marginBottom: '1.5rem' }}>Delph.ai connects your brand identity to every piece of content you generate.</p>
           <div className="history-list">
-            <details open>
-              <summary><h4>1. Define the Brand Brain</h4></summary>
+            <div className="guide-step">
+              <h4>1. Define the Brand Brain</h4>
               <p className="pre-wrap">Navigate to <strong>Brand Brain</strong> to set up your core brand identity. Define your voice, guardrails, and upload source materials (PDFs, guidelines, etc.) that the AI will use to enforce consistency across all campaigns.</p>
-            </details>
-            <details>
-              <summary><h4>2. Create a Campaign Strategy</h4></summary>
+            </div>
+            <div className="guide-step">
+              <h4>2. Create a Campaign Strategy</h4>
               <p className="pre-wrap">Start a new campaign from the dashboard. The AI will prompt you to shape a <strong>Strategy</strong> and select a specific creative <strong>Direction</strong> based on your brief and brand context.</p>
-            </details>
-            <details>
-              <summary><h4>3. Build the Timeline</h4></summary>
+            </div>
+            <div className="guide-step">
+              <h4>3. Build the Timeline</h4>
               <p className="pre-wrap">Map out your content drops. Decide which platforms you are targeting (e.g., LinkedIn, Twitter, Email) and when they should be published. The AI uses this timeline to understand the sequence of events.</p>
-            </details>
-            <details>
-              <summary><h4>4. Content Canvas & Generation</h4></summary>
+            </div>
+            <div className="guide-step">
+              <h4>4. Content Canvas & Generation</h4>
               <p className="pre-wrap">Head to the <strong>Content canvas</strong>. The AI writer will generate drafts specifically tailored for your selected platforms, cross-referencing your Brand Brain guardrails. You can iterate, refine, and view the AI's internal evaluation of the content.</p>
-            </details>
-            <details>
-              <summary><h4>5. Human Approval & Experiments</h4></summary>
+            </div>
+            <div className="guide-step">
+              <h4>5. Human Approval & Experiments</h4>
               <p className="pre-wrap">No content leaves the platform automatically. An authorized user must review and <strong>Approve</strong> the assets. You can also run simulated <strong>Experiments</strong> on different hooks or copy variants to optimize performance before a real launch.</p>
-            </details>
+            </div>
           </div>
         </div>
       )}
