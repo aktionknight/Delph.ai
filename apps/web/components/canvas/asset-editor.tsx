@@ -97,4 +97,40 @@ export function AssetEditor({ asset, brand, campaign, action, busy }: { asset: A
       </section>
       {isInstagram && <section className="panel media-section" aria-label="Instagram voice generation">
         <div className="panel-heading"><Mic size={18} /><h3>Instagram narration</h3><Badge>Natural TTS</Badge></div>
-     
+        <p className="small muted">The creative agent prepares spoken narration from this timeline item and current copy, then a neural TTS voice reads it.</p>
+        {narration.map((media) => <div className="media-preview" key={media.id}><audio controls preload="metadata" src={`/api/assets/${asset.id}/media/${media.id}`} /><p className="small muted">{media.voice || "Generated narration"}</p>{media.script && <details><summary>Review spoken script</summary><p className="pre-wrap">{media.script}</p></details>}</div>)}
+        <label>Narration voice<select value={voice} disabled={busy} onChange={(event) => setVoice(event.target.value)}>{voices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label>Custom narration instructions<textarea rows={3} maxLength={2000} value={voicePrompt} disabled={busy} onChange={(event) => setVoicePrompt(event.target.value)} placeholder="Ask for a warm spoken intro, a shorter reel script, or a more conversational delivery." /></label>
+        <button className="button secondary" disabled={mediaDisabled} onClick={() => generateMedia("voiceover")}><Mic size={16} />{narration.length ? "Generate new narration" : "Generate natural voice"}</button>
+        <p className="small muted">Listen to the audio and verify pronunciation and claims before approving. Image and audio remain attached to this deliverable together.</p>
+      </section>}
+      {(dirty || !version.evaluation.passed) && <div className="notice">Save your edits and pass text evaluation before generating images or narration.</div>}
+      <div className="panel"><Sources refs={version.source_refs} brand={brand} /></div>
+      <details className="panel history-panel"><summary><FileClock size={16} /> Version history <Badge>{asset.versions.length} versions</Badge></summary><div className="history-list">{[...asset.versions].reverse().map((old) => <details key={old.version}><summary><strong>Version {old.version}</strong><span>{new Date(old.created_at).toLocaleString()}</span><Badge tone={old.evaluation.passed ? "green" : "red"}>{old.evaluation.passed ? "Passed" : "Failed"}</Badge></summary><h4>{old.hook}</h4><p className="pre-wrap">{old.body}</p>{old.caption && <><strong>Caption</strong><p className="pre-wrap">{old.caption}</p></>}<p>{old.cta}</p><p className="small muted">{(old.media_items?.length || (old.media ? 1 : 0))} media items</p>{old.evaluation.issues.map((issue, index) => <p className="failure-text" key={index}>{issue}</p>)}</details>)}</div></details>
+    </div>
+    <aside className="asset-inspector">
+      <section className="panel quality-panel">
+        <div className="panel-heading"><ShieldCheck size={17} /><h3>Copy evaluation</h3><Badge tone={version.evaluation.passed ? "green" : "red"}>{version.evaluation.passed ? "ALL PASS" : "REVIEW"}</Badge></div>
+        <p className="small muted">{version.evaluation.model ? "AI evaluator + safety checks" : "Demo rule checks"} · version {version.version}</p>
+        <div className="quality-checks">{Object.entries(version.evaluation.checks).map(([name, passed]) => <div key={name}>{passed ? <CheckCircle2 size={14} /> : <XCircle size={14} className="failure-text" />}<span>{title(name)}</span><strong className={passed ? "" : "failure-text"}>{passed ? "Pass" : "Failed"}</strong></div>)}</div>
+        {version.evaluation.issues.length > 0 && <div className="evaluation-issues">{version.evaluation.issues.map((issue, index) => <p key={index}>{issue}</p>)}</div>}
+        <p className="small muted">AI and rule checks can miss errors. Verify claims, brand fit, captions, and generated media before approval.</p>
+      </section>
+      <section className="panel approval-panel">
+        <div className="row"><span className="eyebrow">HUMAN REVIEW</span><span className="small muted">STAGE 05</span></div>
+        <h3>{isPublished ? "Publication recorded" : asset.status === "approved" ? "Current version approved" : "Your sign-off is required"}</h3>
+        <p>Publication requires a passing evaluation and your explicit approval of this exact version.</p>
+        {dirty && <div className="notice">Save and evaluate your edits before reviewing.</div>}
+        {mediaItems.length > 0 && <label className="inline-check"><input type="checkbox" checked={mediaReviewed} disabled={busy || isPublished} onChange={(event) => setMediaReviewed(event.target.checked)} /> I reviewed all {mediaItems.length} generated media {mediaItems.length === 1 ? "item" : "items"} in version {version.version}, including images and audio.</label>}
+        <label>Review feedback<textarea rows={3} maxLength={2000} value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Note what to improve or why this version is ready." disabled={busy || isPublished} /></label>
+        <button className="button secondary full" disabled={busy || dirty || !feedback.trim() || isPublished} onClick={() => revise("all", feedback)}><RefreshCw size={14} /> Revise with review feedback</button>
+        <button className="button primary full" disabled={busy || dirty || !version.evaluation.passed || (mediaItems.length > 0 && !mediaReviewed) || asset.status === "approved" || isPublished} onClick={() => decision("approve")}><ShieldCheck size={15} /> Approve version {version.version}</button>
+        <div className="review-secondary"><button disabled={busy || dirty || isPublished} onClick={() => decision("request-changes")}>Request changes</button><button disabled={busy || dirty || isPublished} onClick={() => decision("reject")}>Reject version</button></div>
+        {asset.status === "approved" && <button className="button secondary full" disabled={busy || dirty} onClick={() => action(`/assets/${asset.id}/publish`, { version: asset.current_version })}><Check size={14} /> Record publication</button>}
+        {isPublished && <Badge tone="green">Publication recorded</Badge>}
+        <p className="small muted">Publication records a workflow status. It does not post to any social platform.</p>
+      </section>
+      <section className="panel approval-history"><h3>Review history</h3>{asset.approvals.length ? [...asset.approvals].reverse().map((approval, index) => <div key={index}><div className="row"><Status value={approval.decision} /><span className="small muted">v{approval.version}</span></div><p>{approval.feedback || "No review note added."}</p><time>{new Date(approval.created_at).toLocaleString()}</time></div>) : <p className="small muted">No human decisions recorded yet.</p>}</section>
+    </aside>
+  </>;
+}

@@ -66,7 +66,7 @@ class DeterministicRouter:
         return {"hook": hook, "body": body, "cta": cta, "source_refs": [s["id"] for s in sources]}
 
     def evaluate(self, content, brand, asset):
-        combined = "\n".join(content.get(k, "") for k in ("hook", "body", "cta"))
+        combined = "\n".join(content.get(k, "") for k in ("hook", "body", "cta", "caption") if content.get(k))
         lower = combined.lower()
         available = {s["id"]: s for s in brand["sources"] if s["source_type"] != "previous_campaign"}
         refs = content.get("source_refs", [])
@@ -78,7 +78,7 @@ class DeterministicRouter:
         numbers = set(re.findall(r"\b\d+(?:\.\d+)?(?:%|x)?", claim_text))
         unsafe = any(phrase in lower for phrase in ("guaranteed", "guarantee", "100% success", "cures", "risk-free", "10x revenue"))
         if asset["platform"] == "x" and asset["asset_type"] == "thread":
-            chunks = [content["hook"], *content["body"].split("\n\n"), content["cta"]]
+            chunks = [content["hook"], *content["body"].split("\n\n"), content["cta"], content.get("caption", "")]
             platform_fit = all(len(chunk) <= 280 for chunk in chunks)
         else:
             maximum = {"x": 280, "linkedin": 3000, "instagram": 2200}[asset["platform"]]

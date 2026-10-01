@@ -47,7 +47,7 @@ export function ContentPanel({ campaign, brand, action, busy, approvalsOnly }: {
         <button className="button primary" disabled={busy || !scheduled} onClick={generate}><Sparkles size={16} /> Generate text / caption</button>
       </div>
       {scheduled && <div className="canvas-schedule"><CalendarDays size={16} /><div><strong>Day {scheduled.day} · {title(scheduled.stage)} · {title(scheduled.asset_type)}</strong><p className="small muted">{scheduled.objective}</p></div></div>}
-      <label>Custom content instructions<textarea rows={3} maxLength={4000} value={prompt} disabled={busy} onChange={(event) => setPrompt(event.target.value)} placeholder="Describe the angle, tone, audience, or caption you want for this deliverable." /></label>
+      <label>Custom content instructions<textarea rows={3} maxLength={2000} value={prompt} disabled={busy} onChange={(event) => setPrompt(event.target.value)} placeholder="Describe the angle, tone, audience, or caption you want for this deliverable." /></label>
       <p className="small muted">The draft uses your brief, Brand Brain, selected direction, and scheduled objective. Add an image or Instagram narration after the text passes evaluation.</p>
       <details><summary className="small muted">Evaluation demo</summary><label className="inline-check"><input type="checkbox" checked={demonstrateFailure} disabled={busy} onChange={(event) => setDemonstrateFailure(event.target.checked)} /> Demonstrate an unsupported-claim failure</label></details>
     </section>}
