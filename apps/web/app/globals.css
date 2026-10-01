@@ -1931,6 +1931,17 @@ input[type="checkbox"]:checked::before {
   gap: 1rem;
   transition: all 0.2s;
 }
+.direction-card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.direction-card > p {
+  margin: 0;
+  line-height: 1.5;
+}
+.direction-card button {
+  margin-top: auto;
+}
 .direction-card.selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
@@ -1950,6 +1961,10 @@ input[type="checkbox"]:checked::before {
   border-radius: 8px;
   font-size: 0.85rem;
   color: var(--text-secondary);
+  margin-top: 0.5rem;
+}
+.direction-rationale p {
+  margin: 0.5rem 0 0 0;
 }
 
 .brief-card { margin-bottom: 1.5rem; }
