@@ -2070,3 +2070,50 @@ input[type="checkbox"]:checked::before {
   line-height: 1.4;
   margin: 0;
 }
+
+/* Timeline deliverables and revision-aware human review. */
+.section-controls, .section-review, .canvas-generator {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1.25rem;
+}
+.section-controls, .section-review {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+.section-controls label, .section-review label, .canvas-generator > label {
+  display: grid;
+  gap: .5rem;
+  font-size: .875rem;
+  font-weight: 600;
+}
+.section-controls textarea, .section-review textarea, .canvas-generator textarea {
+  width: 100%;
+  min-height: 5rem;
+  resize: vertical;
+  padding: .75rem;
+  font: inherit;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.section-controls .button, .section-review .button { justify-self: start; }
+.section-review > .row { flex-wrap: wrap; gap: .75rem; }
+.section-review h3 { display: flex; align-items: center; gap: .5rem; margin: 0; }
+.review-history { border-top: 1px solid var(--border); padding-top: .75rem; }
+.review-history summary { cursor: pointer; font-size: .875rem; font-weight: 600; }
+.review-history > div { margin-top: .75rem; padding: .75rem; border-radius: 8px; background: var(--bg-secondary); }
+.review-history p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.canvas-generator .generation-bar { margin: 0; flex-wrap: wrap; }
+.canvas-generator .generation-bar label { min-width: min(100%, 15rem); flex: 1; }
+.canvas-schedule { display: flex; gap: .75rem; padding: 1rem; border-radius: 8px; background: var(--bg-secondary); }
+.canvas-schedule > svg { flex-shrink: 0; margin-top: .15rem; color: var(--accent); }
+.canvas-schedule p { margin: .25rem 0 0; }
+@media (max-width: 600px) {
+  .section-review > .row, .canvas-generator .generation-bar { align-items: stretch; flex-direction: column; }
+  .section-review .button, .section-controls .button { width: 100%; }
+}

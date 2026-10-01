@@ -1,11 +1,5 @@
-export type Source = { id: string; name: string; text: string; source_type: string };
-export type Brand = { id: string; name: string; description: string; voice: string; approved_claims: string[]; forbidden_phrases: string[]; sources: Source[] };
-export type Strategy = { positioning: string; core_message: string; audience_summary: string; content_pillars: string[]; assumptions: string[]; creative_directions: { id: string; name: string; description: string; rationale: string }[]; source_refs: string[] };
-export type Version = { version: number; hook: string; body: string; cta: string; source_refs: string[]; evaluation: { passed: boolean; issues: string[]; checks: Record<string, boolean> }; created_at: string };
-export type Asset = { id: string; campaign_id: string; platform: string; asset_type: string; status: string; current_version: number; versions: Version[]; approvals: { version: number; decision: string; feedback: string; created_at: string }[] };
-export type Trace = { id: string; event_type: string; message: string; status: string; timestamp: string };
-export type Campaign = { id: string; brand_id: string; name: string; brief: string; goal: string; audience: string; platforms: string[]; duration_days: number; status: string; created_at: string; strategy: Strategy | null; selected_direction: string | null; timeline: { id: string; day: number; stage: string; platform: string; asset_type: string; objective: string }[]; assets: Asset[]; trace: Trace[]; experiments: { id: string; name: string; asset_id: string; variable: string; variants: { label: string; hook: string; impressions: number; clicks: number; conversions: number }[]; is_demo: boolean }[]; learnings: { id: string; statement: string; evidence: string; confidence: number; saved_to_brand: boolean }[] };
-export type Analytics = { is_demo: boolean; impressions: number; clicks: number; conversions: number; ctr: number; platforms: { platform: string; impressions: number; clicks: number; conversions: number }[]; observations: string[] };
+import type { Asset } from "../../../packages/shared-types";
+export type * from "../../../packages/shared-types";
 
 export async function api<T>(path: string, method = "GET", body?: unknown): Promise<T> {
   const isForm = body instanceof FormData;

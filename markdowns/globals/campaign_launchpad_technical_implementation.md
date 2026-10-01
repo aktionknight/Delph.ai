@@ -114,14 +114,13 @@ For hackathon speed: **Tiptap**.
 - **FastAPI**
 - **Pydantic v2**
 - **Uvicorn**
-- **SQLAlchemy 2.0**
-- **Alembic**
+- **Motor / Beanie** (async MongoDB ODM & driver)
 
 FastAPI is a good fit because the project needs typed APIs, AI orchestration, streaming, and Pydantic-native structured outputs.
 
 ## Primary Database
 
-- **PostgreSQL**
+- **MongoDB** (MongoDB Atlas or self-hosted)
 
 Use it for:
 - Users
@@ -136,22 +135,22 @@ Use it for:
 - Metrics
 - Campaign learnings
 
+MongoDB's flexible document model natively handles deeply nested campaign state (`campaign_state`), agent logs (`input_json`, `output_json`), and rich asset revisions without complex relational joins.
+
 ## Vector Store
 
-Recommended: **PostgreSQL + pgvector**
+Recommended: **MongoDB Atlas Vector Search**
+(Alternative for local/standalone development: **Qdrant** or **Chroma**)
 
 Why:
-- One database
-- Easier deployment
-- Fewer moving parts
-- Sufficient for the MVP RAG workload
-
-Use Qdrant only if you already want richer retrieval controls.
+- **Atlas Vector Search**: Unified database — store documents and vector embeddings in the same collection (`document_chunks`). Query with native `$vectorSearch` aggregation stage alongside metadata filters (`brand_id`, `source_type`). Zero synchronization overhead between business data and vectors, with a free M0 cluster tier.
+- **Qdrant (Alternative)**: Dedicated high-performance vector engine with rich payload filtering, generous cloud free tier, and easy local Docker setup.
+- **Chroma (Local/Dev Alternative)**: Fast, lightweight embedded vector database ideal for rapid offline local prototyping.
 
 ## File Storage
 
-Use one:
-- Cloudflare R2
+Recommended: **Cloudflare R2** (10 GB free forever, zero egress fees, S3-compatible)
+Alternatives:
 - AWS S3
 - Supabase Storage
 
@@ -168,22 +167,25 @@ Create a provider abstraction.
 
 ```text
 Strategy Model
-→ higher-reasoning LLM
+→ higher-reasoning LLM (e.g. Gemini 2.0 Flash / Pro)
 
 Content Model
-→ strong writing LLM
+→ strong writing LLM (e.g. Gemini / Groq Llama 3.3 70B)
 
 Evaluator Model
-→ lower-cost structured-output LLM
+→ lower-cost, ultra-fast structured-output LLM (e.g. Groq Llama 3.1 8B)
 
 Embedding Model
-→ text embeddings
+→ text embeddings (e.g. Gemini text-embedding-004 / FastEmbed)
+
+Reranker Model (Optional)
+→ Cohere Rerank v3.5 (free trial)
 
 Image Model
-→ image generation
+→ image generation (e.g. Pollinations.ai Flux / SDXL)
 
 Voice Model
-→ TTS / cloned voice
+→ TTS / cloned voice (e.g. edge-tts / ElevenLabs)
 ```
 
 Example interface:
@@ -244,8 +246,8 @@ SSE is simpler than WebSockets for one-way progress updates.
           │                        │                       │
           ▼                        ▼                       ▼
 ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐
-│ PostgreSQL         │  │ pgvector           │  │ Model Router       │
-│ campaign state     │  │ embeddings         │  │ LLM / image / TTS  │
+│ MongoDB            │  │ Atlas Vector Search│  │ Model Router       │
+│ campaign state     │  │ (or Qdrant/Chroma) │  │ LLM / image / TTS  │
 └────────────────────┘  └────────────────────┘  └────────────────────┘
 
                     ┌──────────────────────────────┐
@@ -292,7 +294,9 @@ CampaignLearning
 
 ---
 
-# 5. Suggested Database Schema
+# 5. Suggested Database Schema (MongoDB Collections)
+
+In MongoDB, these entities map cleanly to collections and document models (implemented via **Beanie `Document`** or Pydantic/Motor). The `_json` fields become native BSON nested subdocuments or lists without relational join overhead.
 
 ## users
 
@@ -858,9 +862,9 @@ Chunking:
 Store page, section, and source metadata.
 
 Retrieval:
-1. embed query
-2. similarity search top 8
-3. rerank or LLM-select top 4
+1. embed query (e.g. Gemini `text-embedding-004` or FastEmbed)
+2. vector similarity search top 8 (via MongoDB `$vectorSearch` pipeline stage or Qdrant/Chroma) pre-filtered by `brand_id`
+3. rerank or LLM-select top 4 (via Cohere Rerank v3.5 or prompt selection)
 4. return citation metadata
 
 Use separate retrieval categories:
@@ -1730,7 +1734,7 @@ Production-minded MVP requirements:
 For hackathon:
 - Sentry
 - structured logs
-- agent trace table
+- agent trace collection
 
 Optional:
 - Langfuse
@@ -1832,19 +1836,18 @@ Backend:
 Hackathon preference:
 **Railway or Render**
 
-Postgres:
-- Neon
-- Supabase
-- Railway Postgres
+Database & Vector Search:
+- MongoDB Atlas (M0 free tier cluster with native Atlas Vector Search)
+- Self-hosted MongoDB + Qdrant / Chroma
 
 Recommendation:
-**Neon + pgvector**
+**MongoDB Atlas (M0 cluster with Vector Search)**
 
 Redis:
 - Upstash Redis
 
 Storage:
-- Cloudflare R2
+- Cloudflare R2 (10 GB free, 0 egress fees)
 - Supabase Storage
 
 ---
@@ -1852,19 +1855,22 @@ Storage:
 # 39. Environment Variables
 
 ```text
-DATABASE_URL
+MONGODB_URI
+DATABASE_NAME
 REDIS_URL
 JWT_SECRET
 
-LLM_API_KEY
-EMBEDDING_API_KEY
-IMAGE_API_KEY
-TTS_API_KEY
+# Model Providers
+GEMINI_API_KEY
+GROQ_API_KEY
+COHERE_API_KEY
 
-S3_ENDPOINT
-S3_ACCESS_KEY
-S3_SECRET_KEY
-S3_BUCKET
+# Cloudflare R2 / S3-Compatible Storage
+R2_ACCOUNT_ID
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+R2_BUCKET_NAME
+R2_PUBLIC_URL
 
 FRONTEND_URL
 BACKEND_URL

@@ -1,4 +1,4 @@
-"""Run both local demo servers; Ctrl+C stops both process trees."""
+"""Run both local development servers with reload; Ctrl+C stops both process trees."""
 
 from __future__ import annotations
 
@@ -16,6 +16,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> int:
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        print("Run this script with the repository virtualenv Python after installing requirements.", file=sys.stderr)
+        return 1
+    load_dotenv(ROOT / ".env")
     python = ROOT / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     npm = shutil.which("npm.cmd" if os.name == "nt" else "npm")
     if not python.exists() or npm is None or not (ROOT / "apps/web/node_modules").is_dir():
@@ -24,15 +30,15 @@ def main() -> int:
     for port in (8000, 3000):
         with socket.socket() as probe:
             if probe.connect_ex(("127.0.0.1", port)) == 0:
-                print(f"Port {port} is in use. Stop that server before starting the demo.", file=sys.stderr)
+                print(f"Port {port} is in use. Stop that server before starting development servers.", file=sys.stderr)
                 return 1
     children: list[subprocess.Popen] = []
     print("Campaign Launchpad: http://localhost:3000 | API: http://127.0.0.1:8000/docs", flush=True)
-    print("Local single-workspace demo. Press Ctrl+C to stop both servers.", flush=True)
+    print("Set credentials in .env for AI account mode. Press Ctrl+C to stop both servers.", flush=True)
     options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {"start_new_session": True}
     try:
         children.append(subprocess.Popen(
-            [str(python), "-m", "uvicorn", "app.main:app", "--app-dir", "apps/api", "--host", "127.0.0.1", "--port", "8000"],
+            [str(python), "-m", "uvicorn", "app.main:app", "--app-dir", "apps/api", "--reload", "--reload-dir", "apps/api", "--host", "127.0.0.1", "--port", "8000"],
             cwd=ROOT, **options,
         ))
         children.append(subprocess.Popen(

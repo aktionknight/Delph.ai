@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 Short = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10000)]
 Claim = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+Prompt = Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
 
 
 class Input(BaseModel):
@@ -51,11 +52,29 @@ class CampaignInput(Input):
 class DirectionInput(Input):
     direction_id: Short
 
+class CampaignPatch(Input):
+    name: Short | None = None
+    brief: Text | None = None
+    goal: Short | None = None
+    audience: Short | None = None
 
-class AssetInput(Input):
+
+class GenerationInput(Input):
+    prompt: Prompt = ""
+
+
+class SectionReviewInput(Input):
+    section: Literal["brief", "strategy", "direction", "timeline", "insights", "learnings"]
+    revision: int = Field(ge=1)
+    decision: Literal["approved", "changes_requested"]
+    feedback: Prompt = ""
+
+
+class AssetInput(GenerationInput):
     platform: Literal["linkedin", "instagram", "x"]
     asset_type: Literal["post", "reel", "thread", "carousel", "story"]
     demonstrate_failure: bool = False
+    timeline_item_id: Short | None = None
 
     @field_validator("platform", mode="before")
     @classmethod
@@ -67,15 +86,17 @@ class EditInput(Input):
     hook: Text
     body: Text
     cta: Text
+    caption: Annotated[str, StringConstraints(strip_whitespace=True, max_length=10000)] | None = None
 
 
-class RegenerateInput(Input):
+class RegenerateInput(GenerationInput):
     section: Literal["all", "hook", "cta"] = "all"
 
 
 class ApprovalInput(Input):
     version: int = Field(ge=1)
     feedback: str = Field(default="", max_length=2000)
+    media_reviewed: bool = False
 
 
 class PublishInput(Input):
@@ -85,3 +106,32 @@ class PublishInput(Input):
 class ExperimentInput(Input):
     asset_id: Short
     variable: Literal["hook"] = "hook"
+
+
+class MetricInput(Input):
+    label: Short
+    impressions: int = Field(ge=0, le=1000000000)
+    clicks: int = Field(ge=0, le=1000000000)
+    conversions: int = Field(ge=0, le=1000000000)
+    source: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class StrategyEdit(Input):
+    positioning: Text
+    core_message: Text
+    audience_summary: Text
+    content_pillars: list[Short] = Field(min_length=1, max_length=8)
+
+
+class TimelineEdit(Input):
+    day: int = Field(ge=1, le=90)
+    stage: Short
+    platform: Literal["linkedin", "instagram", "x"]
+    asset_type: Literal["post", "reel", "thread", "carousel", "story"]
+    objective: Text
+
+
+class MediaInput(GenerationInput):
+    version: int = Field(ge=1)
+    kind: Literal["image", "voiceover"]
+    voice: Literal["en-US-JennyNeural", "en-US-AriaNeural", "en-US-GuyNeural", "en-GB-SoniaNeural", "en-IN-NeerjaNeural", "en-IN-PrabhatNeural"] | None = None
