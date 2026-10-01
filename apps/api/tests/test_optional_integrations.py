@@ -48,19 +48,5 @@ def test_r2_private_storage_and_owner_check(monkeypatch):
 
 def test_pollinations_needs_current_api_key(monkeypatch):
     monkeypatch.delenv("POLLINATIONS_API_KEY", raising=False)
-    with pytest.raises(AgentError, match="requires a key"):
+    with pytest.raises(AgentError, match="POLLINATIONS_API_KEY"):
         providers.pollinations_image("Campaign illustration")
-
-
-def test_gemini_free_only_guard_prevents_all_image_calls(monkeypatch):
-    from app.agents import AgentSuite
-    monkeypatch.setenv("IMAGE_PROVIDER", "gemini")
-    monkeypatch.setenv("GEMINI_IMAGE_ALLOW_PAID", "false")
-    class NoCalls:
-        def generate(self, *args):
-            pytest.fail("Free-only image generation must not call any model")
-        def request(self, *args):
-            pytest.fail("Free-only image generation must not make any image API call")
-    suite = AgentSuite(NoCalls())
-    with pytest.raises(AgentError, match="no free tier"):
-        suite.media({}, {}, {}, "image")

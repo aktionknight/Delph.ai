@@ -30,11 +30,12 @@ def rerank(query, candidates):
 
 
 def pollinations_image(prompt):
-    if not os.getenv("POLLINATIONS_API_KEY"):
-        raise AgentError("Pollinations image generation requires a key.")
+    key = os.getenv("POLLINATIONS_API_KEY", "").strip()
+    if not key:
+        raise AgentError("Pollinations image generation requires POLLINATIONS_API_KEY in the backend environment.")
     try:
-        with httpx.Client(timeout=120) as client:
-            with client.stream("GET", f"https://image.pollinations.ai/prompt/{quote(prompt[:3000], safe='')}", params={"model": os.getenv("POLLINATIONS_IMAGE_MODEL", "flux"), "width": 1024, "height": 1024, "seed": int.from_bytes(os.urandom(4), "big") % 1000000, "nologo": "true"}) as response:
+        with httpx.Client(timeout=120, follow_redirects=True) as client:
+            with client.stream("GET", f"https://gen.pollinations.ai/image/{quote(prompt[:3000], safe='')}", headers={"Authorization": f"Bearer {key}"}, params={"model": os.getenv("POLLINATIONS_IMAGE_MODEL", "flux"), "width": 1024, "height": 1024, "seed": int.from_bytes(os.urandom(4), "big") % 1000000, "nologo": "true"}) as response:
                 if response.status_code != 200:
                     raise AgentError(f"Pollinations returned HTTP {response.status_code}. Check connection and parameters.")
                 pieces, size = [], 0

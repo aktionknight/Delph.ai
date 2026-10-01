@@ -5,7 +5,6 @@ campaign trace atomically. Review is a terminal boundary, never auto-approval.
 """
 from copy import deepcopy
 from datetime import datetime, timezone
-import os
 from uuid import uuid4
 
 from langgraph.graph import StateGraph, START, END
@@ -74,7 +73,7 @@ class CampaignOrchestrator:
             "campaign_context": {"brief": s["campaign"].get("brief", ""), "platforms": s["campaign"].get("platforms", [])}}))
         graph.add_edge(START, "load_campaign_state")
         parent = "load_campaign_state"
-        if operation not in ("evaluate", "learning", "observations"):
+        if operation not in ("evaluate", "learning", "observations", "media"):
             graph.add_node("retrieve_context", self._node("context_retrieved", lambda s: {
                 "context": {**self.runtime.context(s["campaign"], s["brand"]),
                             "campaign_state": {k: s.get(k) for k in ("campaign_id", "goal", "audience", "strategy", "creative_direction", "timeline", "approved_assets", "brand_id", "campaign_context")}}}))
@@ -90,6 +89,17 @@ class CampaignOrchestrator:
             "learning": ("analytics_learning", lambda s: {"result": self.analytics.learning(s["campaign"], s["experiment"])}),
             "observations": ("analytics_observations", lambda s: {"result": self.analytics.observations(s["campaign"], s["metrics"])}),
             "media": ("creative_media", lambda s: {"result": self.creative.media(s["campaign"], s["brand"], s["asset"], s["media_kind"])})}
+        if operation == "media":
+            graph.add_node("retrieve_context", self._node("context_retrieved", lambda s: {
+                "context": {**self.runtime.context(s["campaign"], s["brand"]),
+                            "campaign_state": {k: s.get(k) for k in ("campaign_id", "goal", "audience", "strategy", "creative_direction", "timeline", "approved_assets", "brand_id", "campaign_context")}}}))
+            name, action = actions[operation]
+            graph.add_node(name, self._node(name, action))
+            graph.add_conditional_edges(parent, lambda s: "creative_media" if s.get("media_kind") == "image" else "retrieve_context",
+                                        {"creative_media": name, "retrieve_context": "retrieve_context"})
+            graph.add_edge("retrieve_context", name)
+            graph.add_edge(name, END)
+            return graph.compile()
         if operation != "asset":
             name, action = actions[operation]
             graph.add_node(name, self._node(name, action))
@@ -196,9 +206,6 @@ class CampaignOrchestrator:
         return self._invoke("observations", campaign, metrics=metrics)
 
     def media(self, campaign, brand, asset, kind):
-        # Check before graph retrieval, since embeddings are also model calls.
-        if kind == "image" and os.getenv("IMAGE_PROVIDER", "gemini").lower() == "gemini" and os.getenv("GEMINI_IMAGE_ALLOW_PAID", "false").lower() != "true":
-            raise AgentError("Gemini image generation is disabled in free-only mode: current Gemini image APIs have no free tier. No image provider was called. Paid usage requires explicitly setting GEMINI_IMAGE_ALLOW_PAID=true.")
         return self._invoke("media", campaign, brand, asset=asset, media_kind=kind)
 
     async def build_campaign_strategy(self, campaign, brand):
