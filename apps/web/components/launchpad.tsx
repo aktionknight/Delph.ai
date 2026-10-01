@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -36,10 +37,41 @@ export function Launchpad() {
 }
 
 function Dashboard({ campaigns, loading, error, retry }: { campaigns: Campaign[]; loading: boolean; error: unknown; retry: () => void }) {
+  const [showGuide, setShowGuide] = useState(false);
   const assets = campaigns.flatMap((campaign) => campaign.assets);
   const metrics = [{ label: "Campaigns", value: campaigns.length, detail: "Ideas in motion", icon: FolderKanban }, { label: "Content assets", value: assets.length, detail: "Connected to your strategy", icon: Sparkles }, { label: "Awaiting review", value: assets.filter((asset) => asset.status === "needs_review").length, detail: "Your judgment makes the difference", icon: ShieldCheck }, { label: "Experiments", value: campaigns.reduce((total, campaign) => total + campaign.experiments.length, 0), detail: "Simulated tests, real learning flow", icon: Radio }];
   return <><PageHeading eyebrow="YOUR CAMPAIGN COMMAND CENTER" title="Good ideas deserve a great launch." description="Turn your next brief into a campaign that works together." action={<Link href="/campaigns/new" className="button primary"><Plus size={17} /> New campaign</Link>} />
-    <section className="hero"><div><Badge>FROM IDEA TO IMPACT</Badge><h2>Less scattered work.<br />More forward momentum.</h2><p>Give your campaign one home — from the first spark<br className="desktop-break" /> to the lessons that make your next launch better.</p><Link href="/campaigns/new" className="button dark">Build your next campaign <ArrowUpRight size={17} /></Link></div><div className="orbit" aria-hidden="true"><span className="orbit-ring ring-one" /><span className="orbit-ring ring-two" /><span className="orbit-core"><Rocket size={42} /></span><span className="orbit-pill pill-one"><Brain size={16} /> Brand context</span><span className="orbit-pill pill-two"><Sparkles size={16} /> Creative strategy</span><span className="orbit-pill pill-three"><ShieldCheck size={16} /> Human approval</span><span className="orbit-star">✦</span></div></section>
+    <div style={{ marginBottom: '2rem' }}>
+      <button className="button secondary" onClick={() => setShowGuide(!showGuide)}><CircleHelp size={16} /> {showGuide ? "Hide application guide" : "How to use Delph.ai"}</button>
+      {showGuide && (
+        <div className="panel" style={{ marginTop: '1rem', border: '1px solid var(--accent)' }}>
+          <h3>How to use the Application</h3>
+          <p className="muted" style={{ marginBottom: '1.5rem' }}>Delph.ai connects your brand identity to every piece of content you generate.</p>
+          <div className="history-list">
+            <details open>
+              <summary><h4>1. Define the Brand Brain</h4></summary>
+              <p className="pre-wrap">Navigate to <strong>Brand Brain</strong> to set up your core brand identity. Define your voice, guardrails, and upload source materials (PDFs, guidelines, etc.) that the AI will use to enforce consistency across all campaigns.</p>
+            </details>
+            <details>
+              <summary><h4>2. Create a Campaign Strategy</h4></summary>
+              <p className="pre-wrap">Start a new campaign from the dashboard. The AI will prompt you to shape a <strong>Strategy</strong> and select a specific creative <strong>Direction</strong> based on your brief and brand context.</p>
+            </details>
+            <details>
+              <summary><h4>3. Build the Timeline</h4></summary>
+              <p className="pre-wrap">Map out your content drops. Decide which platforms you are targeting (e.g., LinkedIn, Twitter, Email) and when they should be published. The AI uses this timeline to understand the sequence of events.</p>
+            </details>
+            <details>
+              <summary><h4>4. Content Canvas & Generation</h4></summary>
+              <p className="pre-wrap">Head to the <strong>Content canvas</strong>. The AI writer will generate drafts specifically tailored for your selected platforms, cross-referencing your Brand Brain guardrails. You can iterate, refine, and view the AI's internal evaluation of the content.</p>
+            </details>
+            <details>
+              <summary><h4>5. Human Approval & Experiments</h4></summary>
+              <p className="pre-wrap">No content leaves the platform automatically. An authorized user must review and <strong>Approve</strong> the assets. You can also run simulated <strong>Experiments</strong> on different hooks or copy variants to optimize performance before a real launch.</p>
+            </details>
+          </div>
+        </div>
+      )}
+    </div>
     <div className="metric-grid">{metrics.map(({ label, value, detail, icon: Icon }) => <div className="metric-card" key={label}><div><span>{label}</span><Icon size={17} /></div><strong>{loading ? "—" : value}</strong><p>{detail}</p></div>)}</div>
     <div className="section-heading"><div><h2>Your campaigns <span className="count">{campaigns.length}</span></h2><p className="muted">Every brief. Every decision. All connected.</p></div><Link href="/brands" className="text-link">Manage brand context <ArrowUpRight size={16} /></Link></div>
     <ErrorNotice error={error} />{error ? <button className="button secondary" onClick={retry}>Retry connection</button> : loading ? <Loading /> : campaigns.length ? <div className="campaign-grid">{campaigns.map((campaign, index) => <Link className="campaign-card" key={campaign.id} href={`/campaigns/${campaign.id}`}><div className={`campaign-art art-${index % 3}`}><span className="campaign-monogram">{campaign.name.split(" ").map((word) => word[0]).slice(0, 2).join("")}</span><span className="campaign-art-label">{campaign.duration_days}-DAY CAMPAIGN</span><ArrowUpRight size={20} /></div><div className="campaign-card-body"><div className="row"><Status value={campaign.status} /><span className="small muted">{new Date(campaign.created_at).toLocaleDateString("en", { month: "short", day: "numeric" })}</span></div><h3>{campaign.name}</h3><p>{campaign.goal}</p><div className="platform-tags">{campaign.platforms.map((platform) => <Badge key={platform}>{platform === "x" ? "X" : platform}</Badge>)}</div><div className="campaign-card-footer"><span>{campaign.assets.length} assets · {campaign.assets.filter((asset) => asset.status === "approved").length} approved</span><ChevronRight size={16} /></div></div></Link>)}</div> : <div className="panel"><Empty title="Your first campaign starts with a brief" action={<Link href="/campaigns/new" className="button primary"><Plus size={17} /> Create a campaign</Link>}>Tell us what you are launching. Connect your brand context, shape the strategy, and take it all the way to review.</Empty></div>}
