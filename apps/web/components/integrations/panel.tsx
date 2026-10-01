@@ -39,7 +39,7 @@ export function IntegrationsPanel({ brands }: { brands: Brand[] }) {
       const connection = !isBlocked ? query.data?.connections.find((c) => c.platform === platform) : null;
       const provider = !isBlocked ? query.data?.providers.find((p) => p.platform === platform) : null;
       const displayName = platform === "x" ? "X (Twitter)" : platform === "instagram" ? "Instagram" : "LinkedIn";
-      return <section className="panel" key={platform}><div className="row"><h2>{displayName}</h2><Badge tone={connection?.status === "active" ? "green" : isBlocked ? "muted" : "amber"}>{connection ? title(connection.status) : isBlocked ? "Coming Soon" : "Not connected"}</Badge></div>
+      return <section className="panel" key={platform}><div className="row"><h2>{displayName}</h2><Badge tone={connection?.status === "active" ? "green" : isBlocked ? "neutral" : "amber"}>{connection ? title(connection.status) : isBlocked ? "Coming Soon" : "Not connected"}</Badge></div>
         {connection && <><p>{connection.display_name}</p><p className="small muted">Token expiry: {new Date(connection.expires_at).toLocaleString()}</p></>}
         <p className="small muted">{isBlocked ? "Data tracking and linking for this platform is coming in the full release." : "Publish personal-profile posts and a reviewed static. Analytics requires approved member post analytics access. Some accounts need periodic reconnection."}</p>
         {provider?.reason && <div className="notice">{provider.reason}</div>}
