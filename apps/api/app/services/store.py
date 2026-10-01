@@ -18,17 +18,20 @@ class SQLStore:
 
     def get(self, model, key):
         record = self.session.get(model, key)
-        return record if record and record.data.get("owner_id", "demo") == self.owner else None
+        return record if record and record not in self.session.deleted and record.data.get("owner_id", "demo") == self.owner else None
 
     def list(self, kind, parent=None):
         query = select(Record).where(Record.kind == kind)
         if parent is not None:
             query = query.where(Record.parent_id == parent)
-        return [r for r in self.session.scalars(query) if r.data.get("owner_id", "demo") == self.owner]
+        return [r for r in self.session.scalars(query) if r not in self.session.deleted and r.data.get("owner_id", "demo") == self.owner]
 
     def add(self, record):
         record.data = {**record.data, "owner_id": self.owner}
         self.session.add(record)
+
+    def delete(self, record):
+        self.session.delete(record)
 
     def commit(self):
         self.session.commit()
@@ -40,8 +43,11 @@ class SQLStore:
 class MongoStore:
     def __init__(self, database, owner):
         self.database, self.owner, self.loaded, self.original = database, owner, {}, {}
+        self.deleted = set()
 
     def get(self, model, key):
+        if key in self.deleted:
+            return None
         if key in self.loaded:
             return self.loaded[key]
         doc = self.database.records.find_one({"_id": key, "owner_id": self.owner})
@@ -55,20 +61,28 @@ class MongoStore:
         query = {"kind": kind, "owner_id": self.owner}
         if parent is not None:
             query["parent_id"] = parent
-        return [self.get(Record, doc["_id"]) for doc in self.database.records.find(query, {"_id": 1})]
+        return [self.get(Record, doc["_id"]) for doc in self.database.records.find(query, {"_id": 1}) if doc["_id"] not in self.deleted]
 
     def add(self, record):
         record.data = {**record.data, "owner_id": self.owner}
         self.loaded[record.id] = record
 
+    def delete(self, record):
+        self.deleted.add(record.id)
+
     def commit(self):
         # Atlas or a replica set is required. A conflict rolls back the entire workflow mutation.
-        if not any(r.id not in self.original or r.data != self.original[r.id] for r in self.loaded.values()):
+        if not self.deleted and not any(r.id not in self.original or r.data != self.original[r.id] for r in self.loaded.values()):
             return
         # Advance read dependencies so brand changes racing publication conflict.
-        changed = list(self.loaded.values())
+        changed = [r for r in self.loaded.values() if r.id not in self.deleted]
         with self.database.client.start_session() as session:
             with session.start_transaction():
+                for record_id in self.deleted:
+                    record = self.loaded[record_id]
+                    result = self.database.records.delete_one({"_id": record_id, "owner_id": self.owner, "revision": record.revision}, session=session)
+                    if result.deleted_count != 1:
+                        raise StaleDataError("Aggregate deletion revision conflict")
                 for r in changed:
                     revision = r.revision or 0
                     doc = {"_id": r.id, "owner_id": self.owner, "kind": r.kind, "parent_id": r.parent_id, "data": r.data, "revision": revision + 1}
@@ -82,10 +96,15 @@ class MongoStore:
         for r in changed:
             r.revision = (r.revision or 0) + 1
             self.original[r.id] = deepcopy(r.data)
+        for record_id in self.deleted:
+            self.loaded.pop(record_id, None)
+            self.original.pop(record_id, None)
+        self.deleted.clear()
 
     def rollback(self):
         self.loaded.clear()
         self.original.clear()
+        self.deleted.clear()
 
 
 class Repository:
@@ -94,7 +113,14 @@ class Repository:
         self.client = None
         if self.mongo:
             from pymongo import MongoClient
-            self.client = MongoClient(os.environ["MONGODB_URI"], serverSelectionTimeoutMS=10000)
+            import certifi
+            self.client = MongoClient(
+                os.environ["MONGODB_URI"],
+                serverSelectionTimeoutMS=10000,
+                tlsCAFile=certifi.where(),
+                retryWrites=True,
+                w='majority'
+            )
             self.database = self.client[os.getenv("MONGODB_DATABASE") or os.getenv("DATABASE_NAME", "campaign_launchpad")]
         else:
             self.engine = None
@@ -109,6 +135,9 @@ class Repository:
             self.database.users.create_index("email", unique=True)
             self.database.sessions.create_index("expires_at", expireAfterSeconds=0)
             self.database.jobs.create_index([("owner_id", 1), ("campaign_id", 1)], unique=True, partialFilterExpression={"active": True})
+            self.database.connections.create_index([("owner_id", 1), ("brand_id", 1), ("platform", 1)], unique=True)
+            self.database.oauth_states.create_index("expires_at", expireAfterSeconds=0)
+            self.database.records.create_index([("kind", 1), ("data.status", 1), ("data.run_at", 1)])
 
     def open(self, owner):
         if self.mongo:

@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import { CalendarDays, Check, CheckCircle2, Copy, FileClock, FileText, ImagePlus, Mic, RefreshCw, Save, ShieldCheck, XCircle } from "lucide-react";
 import { currentVersion, title, type Asset, type Brand, type Campaign } from "@/lib/api";
 import { Badge, ErrorNotice, Sources, Status } from "@/components/ui";
+import { PublishingControls } from "./publishing-controls";
+import { DeleteControl } from "@/components/delete-control";
 import type { Action } from "@/components/campaign/workspace";
 
 const voices = [
@@ -13,7 +15,9 @@ const voices = [
   { id: "en-IN-NeerjaNeural", name: "Neerja · English (India)" },
 ];
 
-export function AssetEditor({ asset, brand, campaign, action, busy }: { asset: Asset; brand?: Brand; campaign?: Campaign; action: Action; busy: boolean }) {
+export function AssetEditor({ asset, brand, campaign, action, busy: pending }: { asset: Asset; brand?: Brand; campaign?: Campaign; action: Action; busy: boolean }) {
+  const publicationLocked = ["publishing", "publish_unknown"].includes(asset.status);
+  const busy = pending || publicationLocked;
   const version = currentVersion(asset);
   const [activeTab, setActiveTab] = useState<"text" | "image" | "voice" | "history">("text");
   const [hook, setHook] = useState(version.hook);
@@ -152,6 +156,8 @@ export function AssetEditor({ asset, brand, campaign, action, busy }: { asset: A
       )}
     </div>
     <aside className="asset-inspector">
+      <PublishingControls asset={asset} campaign={campaign} busy={busy} dirty={dirty} action={action} />
+      <DeleteControl kind="asset" id={asset.id} disabled={busy} />
       <section className="panel quality-panel">
         <div className="panel-heading"><ShieldCheck size={17} /><h3>Copy evaluation</h3><Badge tone={version.evaluation.passed ? "green" : "red"}>{version.evaluation.passed ? "ALL PASS" : "REVIEW"}</Badge></div>
         <p className="small muted">{version.evaluation.model ? "AI evaluator + safety checks" : "Demo rule checks"} · version {version.version}</p>
@@ -169,9 +175,7 @@ export function AssetEditor({ asset, brand, campaign, action, busy }: { asset: A
         <button className="button secondary full" disabled={busy || dirty || !feedback.trim() || isPublished} onClick={() => revise("all", feedback)}><RefreshCw size={14} /> Revise with review feedback</button>
         <button className="button primary full" disabled={busy || dirty || !version.evaluation.passed || (mediaItems.length > 0 && !mediaReviewed) || asset.status === "approved" || isPublished} onClick={() => decision("approve")}><ShieldCheck size={15} /> Approve version {version.version}</button>
         <div className="review-secondary"><button disabled={busy || dirty || isPublished} onClick={() => decision("request-changes")}>Request changes</button><button disabled={busy || dirty || isPublished} onClick={() => decision("reject")}>Reject version</button></div>
-        {asset.status === "approved" && <button className="button secondary full" disabled={busy || dirty} onClick={() => action(`/assets/${asset.id}/publish`, { version: asset.current_version })}><Check size={14} /> Record publication</button>}
-        {isPublished && <Badge tone="green">Publication recorded</Badge>}
-        <p className="small muted">Publication records a workflow status. It does not post to any social platform.</p>
+
       </section>
       <section className="panel approval-history"><h3>Review history</h3>{asset.approvals.length ? [...asset.approvals].reverse().map((approval, index) => <div key={index}><div className="row"><Status value={approval.decision} /><span className="small muted">v{approval.version}</span></div><p>{approval.feedback || "No review note added."}</p><time>{new Date(approval.created_at).toLocaleString()}</time></div>) : <p className="small muted">No human decisions recorded yet.</p>}</section>
     </aside>

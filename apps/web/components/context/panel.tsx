@@ -1,13 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, BarChart3, BookOpen, CalendarDays, Check, CheckCircle2, Download, FlaskConical, Layers, ListChecks, RefreshCw, Route, ShieldCheck, Sparkles } from "lucide-react";
-import { api, currentVersion, platforms, title, type Analytics, type Asset, type Brand, type Campaign } from "@/lib/api";
-import { Badge, Empty, ErrorNotice, Loading, PageHeading, Sources, Status } from "@/components/ui";
-import { AssetEditor } from "@/components/canvas/asset-editor";
-import { StrategyEditor, TimelineEditor } from "@/components/strategist/planning-editor";
+import { BookOpen, Check, Sparkles } from "lucide-react";
+import type { Campaign } from "@/lib/api";
+import { Badge, Empty } from "@/components/ui";
 
 import type { Action } from "@/components/campaign/workspace";
 

@@ -1,7 +1,7 @@
 "use client";
 import { type FormEvent } from "react";
 import { type Campaign, platforms } from "@/lib/api";
-import { type Action } from "@/components/workspace";
+import { type Action } from "@/components/campaign/workspace";
 
 export function BriefEditor({ campaign, action, busy }: { campaign: Campaign; action: Action; busy: boolean }) {
   return <details><summary>Fine-tune campaign brief</summary>

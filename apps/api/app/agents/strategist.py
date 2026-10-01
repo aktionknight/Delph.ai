@@ -8,7 +8,7 @@ class StrategistAgent(BaseAgent):
         return {**strategy, **self.directions(campaign, brand, strategy)}
 
     def positioning(self, campaign, brand):
-        context = self.context(campaign, brand)
+        context = {**self.context(campaign, brand), **self.guidance(campaign, "strategy")}
         strategy = self.call(campaign, "strategist", "Build positioning, core message, content pillars and explicitly labeled assumptions. Cite only supplied source IDs. Historical learnings are hypotheses, not product facts.", context, Strategy)
         allowed = {s["id"] for s in context["sources"]}
         if not set(strategy["source_refs"]) <= allowed:
@@ -16,7 +16,7 @@ class StrategistAgent(BaseAgent):
         return strategy
 
     def directions(self, campaign, brand, strategy):
-        context = {**self.context(campaign, brand), **self.guidance(campaign, "strategy")}
+        context = self.context(campaign, brand)
         context = {**context, **self.guidance(campaign, "direction"), "strategy": strategy, "campaign_state": {**context.get("campaign_state", {}), "strategy": strategy}}
         creative = self.call(campaign, "strategist", "Propose three distinct creative directions with unique IDs and grounded rationales.", context, Directions)
         if len({d["id"] for d in creative["creative_directions"]}) != 3:

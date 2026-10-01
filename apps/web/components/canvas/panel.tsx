@@ -14,6 +14,11 @@ export function ContentPanel({ campaign, brand, action, busy, approvalsOnly }: {
   const [prompt, setPrompt] = useState("");
   const [demonstrateFailure, setDemonstrateFailure] = useState(false);
   const selectedPlatform = campaign.platforms.includes(platform) ? platform : campaign.platforms[0];
+  const platformGuidance = selectedPlatform === "linkedin"
+    ? "LinkedIn: professional, approachable copy with clear work relevance and a thoughtful CTA."
+    : selectedPlatform === "instagram"
+      ? "Instagram: conversational, visually led copy with a natural hook and a separate caption."
+      : "X: concise, direct copy with short posts or a focused thread.";
   const scheduledItems = campaign.timeline.filter((item) => item.platform === selectedPlatform);
   const scheduled = scheduledItems.find((item) => item.id === timelineId) || scheduledItems[0];
   const assets = approvalsOnly ? campaign.assets.filter((asset) => !["published", "rejected"].includes(asset.status)) : campaign.assets;
@@ -46,6 +51,7 @@ export function ContentPanel({ campaign, brand, action, busy, approvalsOnly }: {
         </select></label>
         <button className="button primary" disabled={busy || !scheduled} onClick={generate}><Sparkles size={16} /> Generate text / caption</button>
       </div>
+      <p className="small muted">{platformGuidance} Your brand voice and custom instructions shape the draft.</p>
       {scheduled && <div className="canvas-schedule"><CalendarDays size={16} /><div><strong>Day {scheduled.day} · {title(scheduled.stage)} · {title(scheduled.asset_type)}</strong><p className="small muted">{scheduled.objective}</p></div></div>}
       <label>Custom content instructions<textarea rows={3} maxLength={2000} value={prompt} disabled={busy} onChange={(event) => setPrompt(event.target.value)} placeholder="Describe the angle, tone, audience, or caption you want for this deliverable." /></label>
       <p className="small muted">The draft uses your brief, Brand Brain, selected direction, and scheduled objective. Add an image or Instagram narration after the text passes evaluation.</p>

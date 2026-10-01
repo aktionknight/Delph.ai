@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from . import Short, Text
 
 class Output(BaseModel):
@@ -58,4 +58,13 @@ class VisualPlan(Output):
 class Narration(Output):
     script: str = Field(min_length=1, max_length=6000)
     source_refs: list[Short] = Field(min_length=1, max_length=8)
+
+class XPostContent(Content):
+    @model_validator(mode="after")
+    def publishable_length(self):
+        if self.caption:
+            raise ValueError("A single X post uses hook/body/CTA only; caption must be empty.")
+        if len("\n".join((self.hook, self.body, self.cta))) > 280:
+            raise ValueError("A single X post including newline separators must fit 280 characters.")
+        return self
 

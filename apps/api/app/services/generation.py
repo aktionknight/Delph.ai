@@ -66,7 +66,9 @@ class DeterministicRouter:
         return {"hook": hook, "body": body, "cta": cta, "source_refs": [s["id"] for s in sources]}
 
     def evaluate(self, content, brand, asset):
-        combined = "\n".join(content.get(k, "") for k in ("hook", "body", "cta", "caption") if content.get(k))
+        narration_only = asset.get("narration_only", False)
+        fields = ("body",) if narration_only else ("hook", "body", "cta", "caption")
+        combined = "\n".join(content.get(k, "") for k in fields if content.get(k))
         lower = combined.lower()
         available = {s["id"]: s for s in brand["sources"] if s["source_type"] != "previous_campaign"}
         refs = content.get("source_refs", [])
@@ -77,7 +79,9 @@ class DeterministicRouter:
         claim_text = re.sub(r"(?m)^\d+/\s*", "", lower)
         numbers = set(re.findall(r"\b\d+(?:\.\d+)?(?:%|x)?", claim_text))
         unsafe = any(phrase in lower for phrase in ("guaranteed", "guarantee", "100% success", "cures", "risk-free", "10x revenue"))
-        if asset["platform"] == "x" and asset["asset_type"] == "thread":
+        if narration_only:
+            platform_fit = len(combined) <= 6000
+        elif asset["platform"] == "x" and asset["asset_type"] == "thread":
             chunks = [content["hook"], *content["body"].split("\n\n"), content["cta"], content.get("caption", "")]
             platform_fit = all(len(chunk) <= 280 for chunk in chunks)
         else:
@@ -88,7 +92,7 @@ class DeterministicRouter:
             "claim_safety": not unsafe and numbers <= evidence_numbers,
             "brand_fit": not any(p.lower() in lower for p in brand["forbidden_phrases"]),
             "platform_fit": platform_fit,
-            "completeness": all(content.get(k, "").strip() for k in ("hook", "body", "cta")),
+            "completeness": all(content.get(k, "").strip() for k in (("body",) if narration_only else ("hook", "body", "cta"))),
         }
         messages = {"source_references_valid": "No valid factual source references were provided.", "claim_safety": "Unsupported numeric or absolute claim detected; remove it or provide approved evidence.", "brand_fit": "Content contains a forbidden brand phrase.", "platform_fit": "Content exceeds platform character limits.", "completeness": "Hook, body, and CTA are required."}
         return {"passed": all(checks.values()), "issues": [messages[k] for k, passed in checks.items() if not passed], "checks": checks}

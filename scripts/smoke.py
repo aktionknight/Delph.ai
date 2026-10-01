@@ -68,7 +68,7 @@ def main() -> None:
     assert campaign["learnings"]
     campaign = request(path + f"/learnings/{campaign['learnings'][0]['id']}/save", "POST")
     assert campaign["learnings"][0]["saved_to_brand"]
-    exported = request(path + "/export")
+    exported = request(path + "/export?format=json")
     assert exported["campaign"]["id"] == campaign["id"]
     print(json.dumps({"result": "passed", "base": base, "campaign_id": campaign["id"], "assets": len(campaign["assets"]), "trace_events": len(request(path + "/trace"))}, indent=2))
 

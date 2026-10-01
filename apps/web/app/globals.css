@@ -386,6 +386,31 @@ h3, h4, h5, h6 { font-weight: 600; }
 .button.full {
   width: 100%;
 }
+.button.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.button.danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--danger);
+}
+.button-icon-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.35rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+.button-icon-danger:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.15);
+}
 .button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -2242,4 +2267,52 @@ input[type="checkbox"]:checked::before {
 @media (max-width: 600px) {
   .section-review > .row, .canvas-generator .generation-bar { align-items: stretch; flex-direction: column; }
   .section-review .button, .section-controls .button { width: 100%; }
+}
+
+/* Downloadable campaign deliverables, grouped by their persisted timeline links. */
+.deliverables-panel, .deliverables-history { display: grid; gap: 1.25rem; }
+.deliverables-panel .section-heading { margin-bottom: 0; gap: 1rem; flex-wrap: wrap; }
+.deliverables-summary { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.deliverables-summary p { flex: 1 1 24rem; }
+.deliverables-group { padding: 0; overflow: hidden; }
+.deliverables-group-heading { display: flex; align-items: flex-start; gap: .85rem; padding: 1.25rem; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
+.deliverables-group-heading > svg { color: var(--accent); flex-shrink: 0; margin-top: .2rem; }
+.deliverables-group-heading > div { flex: 1; min-width: 0; }
+.deliverables-group-heading .row, .deliverables-asset-heading .row { flex-wrap: wrap; gap: .5rem; }
+.deliverables-group-heading h3 { margin-top: .5rem; font-size: 1rem; overflow-wrap: anywhere; }
+.deliverables-group-heading > span { white-space: nowrap; }
+.deliverables-assets { display: grid; }
+.deliverables-asset { min-width: 0; padding: 1.25rem; }
+.deliverables-asset + .deliverables-asset { border-top: 1px solid var(--border); }
+.deliverables-asset-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.deliverables-asset-heading > div { min-width: 0; }
+.deliverables-asset-heading > .button { flex-shrink: 0; }
+.deliverables-asset h4 { margin: .75rem 0 1rem; overflow-wrap: anywhere; }
+.deliverables-snapshot { padding: .75rem; border-left: 2px solid var(--warning); background: var(--warning-bg); margin-bottom: 1rem; }
+.deliverables-files { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: .75rem; }
+.deliverables-file { display: flex; gap: .75rem; align-items: center; padding: .8rem; border: 1px solid var(--border); border-radius: 8px; }
+.deliverables-file > svg { color: var(--accent); flex-shrink: 0; }
+.deliverables-file > div { flex: 1; min-width: 0; }
+.deliverables-file .button { flex-shrink: 0; }
+.deliverables-copy { margin-top: 1rem; }
+.deliverables-copy summary, .deliverables-narration summary { cursor: pointer; color: var(--text-secondary); font-size: .875rem; }
+.deliverables-copy p, .deliverables-narration p { margin: .75rem 0; overflow-wrap: anywhere; }
+.deliverables-media { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 1rem; }
+.deliverables-media:empty { display: none; }
+.deliverables-media-file { margin: 1rem 0 0; padding: .85rem; min-width: 0; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; }
+.deliverables-media-file img { display: block; max-width: 100%; width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; }
+.deliverables-media-file audio { display: block; width: 100%; margin-bottom: 1rem; }
+.deliverables-media-file figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: .85rem; }
+.deliverables-media-file figcaption .button { margin-left: auto; }
+.deliverables-narration { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: .75rem; }
+.deliverables-narration > .button { margin-top: .5rem; }
+.deliverables-missing { margin: 1rem; color: var(--text-secondary); font-size: .875rem; }
+.deliverables-availability { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; color: var(--text-secondary); font-size: .8rem; }
+.deliverables-availability > span { display: inline-flex; align-items: center; gap: .4rem; }
+@media (max-width: 600px) {
+  .deliverables-asset-heading { flex-direction: column; }
+  .deliverables-group-heading { flex-wrap: wrap; }
+  .deliverables-file { flex-wrap: wrap; }
+  .deliverables-file > .button { margin-left: auto; }
+  .deliverables-panel .section-heading > .button { width: 100%; }
 }

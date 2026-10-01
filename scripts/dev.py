@@ -45,6 +45,8 @@ def main() -> int:
             [npm, "run", "dev", "--", "--hostname", "127.0.0.1", "--port", "3000"],
             cwd=ROOT / "apps/web", **options,
         ))
+        if os.getenv("SOCIAL_WORKER_ENABLED", "false").lower() == "true":
+            children.append(subprocess.Popen([str(python), "scripts/social_worker.py"], cwd=ROOT, **options))
         while all(child.poll() is None for child in children):
             time.sleep(0.5)
         print("A server exited; stopping the other server.", file=sys.stderr)

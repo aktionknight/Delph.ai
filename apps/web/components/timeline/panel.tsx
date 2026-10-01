@@ -15,7 +15,7 @@ export function TimelinePanel({ campaign, action, busy, onNext }: {
   return <><div className="section-heading"><div><h2>A rhythm for your launch</h2><p className="muted">A {campaign.duration_days}-day plan, grounded in your selected direction.</p></div></div>
     <div className="panel"><SectionPrompt section="timeline" value={prompt} onChange={setPrompt} busy={busy} disabled={!campaign.selected_direction}
       generateLabel={campaign.timeline.length ? "Rebalance timeline" : "Generate timeline"} onGenerate={() => action(`/campaigns/${campaign.id}/timeline`, { prompt })} />
-      {campaign.timeline.length > 0 && <p className="small muted">Regenerating replaces the schedule. Existing assets keep their original timeline reference; remap them in the canvas before publication.</p>}
+      {campaign.timeline.length > 0 && <p className="small muted">Regenerating replaces the schedule. Existing assets retain their original schedule; create replacement deliverables in the canvas for the revised timeline.</p>}
     </div>
     {!campaign.selected_direction ? <Empty title="Choose a creative direction first">Your timeline needs a strategy and selected direction. Head to the Strategy tab to set them.</Empty> : !campaign.timeline.length ? <div className="panel"><Empty title="Make every stage of the launch count.">Generate a sequence that brings your audience from awareness to action.</Empty></div> : <>
       <div className="timeline">{campaign.timeline.map((item) => {

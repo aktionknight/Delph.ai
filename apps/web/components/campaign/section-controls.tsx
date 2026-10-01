@@ -11,18 +11,9 @@ export const sectionNames: Record<CampaignSection, string> = {
   brief: "Campaign brief", strategy: "Strategy", direction: "Creative direction",
   timeline: "Campaign timeline", insights: "Analytics insights", learnings: "Campaign learnings"
 };
-type SectionReviewRecord = {
-  section: CampaignSection; revision: number; decision: "approved" | "changes_requested";
-  feedback: string; created_at: string; user_id: string;
-};
-type ReviewableCampaign = Campaign & {
-  generation_prompts?: Record<string, string>;
-  section_revisions?: Record<string, number>;
-  reviews?: SectionReviewRecord[];
-};
 
 export function savedPrompt(campaign: Campaign, section: CampaignSection) {
-  return (campaign as ReviewableCampaign).generation_prompts?.[section] || "";
+  return campaign.generation_prompts?.[section] || "";
 }
 
 export function SectionPrompt({ section, value, onChange, busy, onGenerate, generateLabel, disabled = false }: {
@@ -55,10 +46,15 @@ export function sectionAvailable(campaign: Campaign, section: CampaignSection) {
 export function SectionReview({ campaign, section, action, busy }: {
   campaign: Campaign; section: CampaignSection; action: Action; busy: boolean;
 }) {
+  const revision = campaign.section_revisions?.[section] || 1;
+  return <RevisionReview key={`${campaign.id}-${section}-${revision}`} campaign={campaign} section={section} revision={revision} action={action} busy={busy} />;
+}
+
+function RevisionReview({ campaign, section, revision, action, busy }: {
+  campaign: Campaign; section: CampaignSection; revision: number; action: Action; busy: boolean;
+}) {
   const [feedback, setFeedback] = useState("");
-  const data = campaign as ReviewableCampaign;
-  const revision = data.section_revisions?.[section] || 0;
-  const history = (data.reviews || []).filter((review) => review.section === section);
+  const history = (campaign.reviews || []).filter((review) => review.section === section);
   const current = history.filter((review) => review.revision === revision).at(-1);
   const available = sectionAvailable(campaign, section);
   const submit = (decision: "approved" | "changes_requested") => action(`/campaigns/${campaign.id}/reviews`, {

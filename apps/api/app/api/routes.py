@@ -76,6 +76,10 @@ def create_app(database_url=None, agent_suite=None):
     mode = "deterministic" if isinstance(router, DeterministicRouter) else "gemini"
     auth = Auth(repository, demo)
     blobs = BlobStore(repository.database if repository.mongo else None)
+    from ..services.social import SocialAccounts, SocialError
+    from ..services.publishing import SocialPublisher
+    accounts = SocialAccounts(repository)
+    publisher = SocialPublisher(repository, accounts, router, blobs)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -87,10 +91,13 @@ def create_app(database_url=None, agent_suite=None):
                 db.add(Record(id=brand["id"], kind="brand", data=brand))
                 db.commit()
         yield
+        accounts.close()
         repository.close()
 
     app = FastAPI(title="Campaign Launchpad", lifespan=lifespan)
     app.state.repository = repository
+    app.state.social_accounts = accounts
+    app.state.social_publisher = publisher
     app.include_router(auth.routes())
     app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:3000"), "http://127.0.0.1:3000"], allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type"], allow_credentials=True)
@@ -126,6 +133,14 @@ def create_app(database_url=None, agent_suite=None):
     @app.exception_handler(CapacityError)
     async def capacity_error(request, exc):
         return JSONResponse(status_code=413, content={"detail": str(exc)})
+
+    @app.exception_handler(SocialError)
+    async def social_error(request, exc):
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(StaleDataError)
+    async def publication_conflict(request, exc):
+        return JSONResponse(status_code=409, content={"detail": "Publication state changed in another request. Reload before retrying."})
 
     def session(request: Request):
         user = auth.user(request)
@@ -174,11 +189,20 @@ def create_app(database_url=None, agent_suite=None):
         return data
 
     def change_asset(db, asset_record, data, campaign_record, campaign):
+        prior = asset_record.data.get("publication", {})
+        if prior.get("status") == "scheduled" and data["status"] != "scheduled":
+            job = db.get(Record, prior["id"])
+            if job and job.data["status"] == "scheduled":
+                job.data = {**job.data, "status": "cancelled", "error": "Asset revised or approval changed."}
+            if data.get("publication", {}).get("id") == prior["id"]:
+                data["publication"] = {**data["publication"], "status": "cancelled"}
         asset_record.data = deepcopy(data)
         save(db, campaign_record, campaign)
         return data
 
     def append_version(asset, content, brand, campaign, created_by="ai", evaluation=None):
+        if asset.get("publication"):
+            asset.setdefault("publication_history", []).append(deepcopy(asset.pop("publication")))
         version = len(asset["versions"]) + 1
         evaluation = evaluation if evaluation is not None else router.evaluate(content, brand, {**asset, "campaign_context": {k: campaign.get(k) for k in ("goal", "audience", "strategy", "selected_direction")}})
         asset["versions"].append({**content, "caption": content.get("caption", ""), "generation_prompt": asset.get("generation_prompt", ""), "timeline_item_id": asset.get("timeline_item_id"), "timeline_snapshot": deepcopy(asset.get("timeline_snapshot")), "version": version, "evaluation": evaluation, "created_by": created_by if mode == "gemini" else "demo", "generation_mode": mode, "created_at": now(), "context": {"selected_direction": campaign["selected_direction"], "strategy": deepcopy(campaign["strategy"]), "brand_voice": brand["voice"], "approved_claims": deepcopy(brand["approved_claims"])}})
@@ -194,6 +218,8 @@ def create_app(database_url=None, agent_suite=None):
         c = get(db, a.parent_id, "campaign")
         b = get(db, c.data["brand_id"], "brand")
         asset = deepcopy(a.data)
+        if asset["status"] in {"publishing", "publish_unknown"}:
+            raise HTTPException(409, "Publication is processing or its outcome needs inspection. Editing is locked to protect the approved version.")
         campaign = campaign_state(db, c)
         asset["campaign_context"] = {k: campaign.get(k) for k in ("goal", "audience", "strategy", "selected_direction")}
         return a, asset, c, campaign, b.data
@@ -217,6 +243,18 @@ def create_app(database_url=None, agent_suite=None):
         record = Record(id=data["id"], kind="brand", data=data)
         db.add(record)
         return save(db, record, data)
+
+    @app.delete("/brands/{brand_id}")
+    def delete_brand(brand_id: str, db: Session = Depends(session)):
+        b = get(db, brand_id, "brand")
+        campaigns = [c for c in db.list("campaign") if c.parent_id == brand_id or c.data.get("brand_id") == brand_id]
+        for c in campaigns:
+            for a in db.list("asset", c.id):
+                db.delete(a)
+            db.delete(c)
+        db.delete(b)
+        db.commit()
+        return {"ok": True, "id": brand_id}
 
     @app.patch("/brands/{brand_id}")
     def edit_brand(brand_id: str, body: BrandPatch, db: Session = Depends(session)):
@@ -347,6 +385,25 @@ def create_app(database_url=None, agent_suite=None):
             trace(data, "brief_revised", "Updated brief; rebuild strategy and timeline. Existing deliverables retain their historical context.")
         save(db, c, data)
         return campaign_view(db, c)
+
+    @app.delete("/campaigns/{campaign_id}")
+    def delete_campaign(campaign_id: str, db: Session = Depends(session)):
+        c = get(db, campaign_id, "campaign")
+        deletion_guard(db, c.id)
+        assets = db.list("asset", c.id)
+        for a in assets:
+            if a.data["status"] in {"publishing", "publish_unknown"}:
+                raise HTTPException(409, "A publication is processing or needs inspection; resolve it before deleting this campaign.")
+        cleanup_id = queue_media_cleanup(db, assets)
+        for a in assets:
+            for job in db.list("publication", a.id):
+                db.delete(job)
+            db.delete(a)
+        db.delete(c)
+        db.commit()
+        if cleanup_id:
+            publisher.cleanup(db.owner, cleanup_id)
+        return {"ok": True, "id": campaign_id}
 
     @app.post("/campaigns/{campaign_id}/reviews")
     def section_review(campaign_id: str, body: SectionReviewInput, db: Session = Depends(session)):
@@ -605,6 +662,8 @@ def create_app(database_url=None, agent_suite=None):
 
     @app.post("/assets/{asset_id}/publish")
     def publish(asset_id: str, body: PublishInput, db: Session = Depends(session)):
+        if not demo:
+            raise HTTPException(409, "Use connected-account publishing for live content. Local publication recording is available only in demo mode.")
         a, asset, c, campaign, brand = asset_context(db, asset_id)
         version = current_version(asset, body.version)
         approval = asset["approvals"][-1] if asset["approvals"] else None
@@ -616,6 +675,47 @@ def create_app(database_url=None, agent_suite=None):
         campaign["status"] = "live"
         trace(campaign, "published", f"Marked asset {asset_id} v{body.version} published locally. No social platform API was called.")
         return change_asset(db, a, asset, c, campaign)
+
+    @app.delete("/assets/{asset_id}")
+    def delete_asset(asset_id: str, db: Session = Depends(session)):
+        a = get(db, asset_id, "asset")
+        c = get(db, a.parent_id, "campaign")
+        deletion_guard(db, c.id)
+        if a.data["status"] in {"publishing", "publish_unknown"}:
+            raise HTTPException(409, "Publication is processing or needs inspection; resolve it before deleting this asset.")
+        cleanup_id = queue_media_cleanup(db, [a])
+        for job in db.list("publication", a.id):
+            db.delete(job)
+        db.delete(a)
+        data = deepcopy(c.data)
+        removed = {e["id"] for e in data["experiments"] if e["asset_id"] == asset_id}
+        data["experiments"] = [e for e in data["experiments"] if e["asset_id"] != asset_id]
+        data["learnings"] = [l for l in data["learnings"] if l.get("experiment_id") not in removed]
+        data["insights"] = []
+        data.pop("social_sync", None)
+        revise(data, "insights", "learnings")
+        trace(data, "asset_deleted", f"Deleted asset {asset_id} and its related experiments. Existing social posts remain unchanged.")
+        save(db, c, data)
+        if cleanup_id:
+            publisher.cleanup(db.owner, cleanup_id)
+        return {"ok": True, "id": asset_id}
+
+    def deletion_guard(db, campaign_id):
+        if repository.mongo and repository.database.jobs.find_one({"owner_id": db.owner, "campaign_id": campaign_id, "active": True}):
+            raise HTTPException(409, "Wait for the campaign agent operation to finish before deleting.")
+
+    def queue_media_cleanup(db, assets):
+        media = {}
+        for asset in assets:
+            for version in asset.data["versions"]:
+                for item in version.get("media_items") or ([version["media"]] if version.get("media") else []):
+                    if item.get("key"):
+                        media[item["key"]] = deepcopy(item)
+        if not media:
+            return None
+        key = uid()
+        db.add(Record(id=key, kind="blob_cleanup", data={"id": key, "owner_id": db.owner, "status": "pending", "blobs": list(media.values())}))
+        return key
 
     @app.post("/campaigns/{campaign_id}/experiments")
     def experiment(campaign_id: str, body: ExperimentInput, db: Session = Depends(session)):
@@ -638,12 +738,15 @@ def create_app(database_url=None, agent_suite=None):
         if mode == "gemini":
             variants = [{"label": "A · Original", "hook": asset["versions"][-1]["hook"], "impressions": 0, "clicks": 0, "conversions": 0}]
             for index in (1, 2):
-                result = router.generate_asset_sync(data, brand, asset, index, "hook")
+                result = router.generate_asset_sync(data, brand, {**deepcopy(asset), "generation_prompt": body.prompt}, index, "hook")
                 draft = result["versions"][-1]
                 variants.append({"label": f"{chr(65 + index)} · AI hook", "hook": draft["content"]["hook"],
                     "evaluation": draft["evaluation"], "generation_history": result["versions"],
                     "status": result["status"], "impressions": 0, "clicks": 0, "conversions": 0})
         data["experiments"].append({"id": uid(), "name": f"Hook comparison {len(data['experiments']) + 1}", "asset_id": a.id, "asset_version": asset["current_version"], "variable": body.variable, "variants": variants, "is_demo": mode == "deterministic", "status": "draft", "metrics_source": "simulated" if mode == "deterministic" else "none"})
+        revise(data, "insights", "learnings")
+        data["experiments"][-1]["generation_prompt"] = body.prompt
+        guidance(data, "experiments", body)
         trace(data, "experiment_created", "Created comparison drafts; each variant requires its own asset review before publication. " + ("Fixed simulated metrics." if mode == "deterministic" else "No performance metrics yet."))
         save(db, c, data)
         return campaign_view(db, c)
@@ -660,7 +763,8 @@ def create_app(database_url=None, agent_suite=None):
         result.update({"is_demo": any(e["is_demo"] for e in campaign["experiments"]), "ctr": result["clicks"] / result["impressions"] if result["impressions"] else 0, "platforms": list(totals.values()), "observations": ["All metrics are deterministic simulated data, not real campaign performance.", "Experiment comparisons describe the fixture only; no causal or statistical conclusion is supported."]})
         if mode == "gemini":
             result["observations"] = ["No audience results yet. Import actual metrics to analyze performance." if not result["impressions"] else "Metrics were manually imported by a workspace user; no social analytics API was called."]
-        return result
+        from ..services.social_analytics import with_social_metrics
+        return with_social_metrics(result, campaign)
 
     @app.get("/campaigns/{campaign_id}/analytics")
     def analytics(campaign_id: str, db: Session = Depends(session)):
@@ -682,6 +786,7 @@ def create_app(database_url=None, agent_suite=None):
         variant.update({k: getattr(body, k) for k in ("impressions", "clicks", "conversions")})
         exp["metrics_source"] = "manual_import"
         exp["metric_revision"] = exp.get("metric_revision", 0) + 1
+        revise(data, "insights", "learnings")
         trace(data, "metrics_imported", "User imported cumulative variant metrics; source and prior snapshot recorded.")
         save(db, c, data)
         return campaign_view(db, c)
@@ -786,6 +891,8 @@ def create_app(database_url=None, agent_suite=None):
         return JSONResponse({"mode": "local-demo" if demo else "authenticated", "generation": mode, "analytics": analytics_data(data), "campaign": data, "brand": get(db, data["brand_id"], "brand").data}, headers={"Content-Disposition": f'attachment; filename="campaign-{data["id"]}.json"'})
 
     from ..workers.jobs import job_routes
+    from .social_routes import social_routes
+    app.include_router(social_routes(repository, auth, accounts, publisher, session, get, campaign_view, demo))
     app.include_router(job_routes(repository, auth, {"strategy": strategy, "directions": directions, "timeline": timeline, "assets": generate_asset, "insights": insights, "learnings": learnings}))
     return app
 

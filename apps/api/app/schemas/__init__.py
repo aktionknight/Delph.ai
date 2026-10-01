@@ -103,7 +103,7 @@ class PublishInput(Input):
     version: int = Field(ge=1)
 
 
-class ExperimentInput(Input):
+class ExperimentInput(GenerationInput):
     asset_id: Short
     variable: Literal["hook"] = "hook"
 

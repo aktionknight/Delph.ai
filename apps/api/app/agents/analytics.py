@@ -7,5 +7,5 @@ class AnalyticsAgent(BaseAgent):
 
 
     def observations(self, campaign, metrics):
-        return self.call(campaign, "analytics", "Describe only the supplied metrics. Distinguish manually imported data from simulated results. Avoid causal claims and statistical significance. Zero results mean no evidence yet.", {**metrics, **self.guidance(campaign, "insights")}, Observations)["observations"]
+        return self.call(campaign, "analytics", "Describe only supplied metrics and their provenance: real social API snapshots, manual imports, or simulations. Respect availability flags and null values: unavailable clicks, impressions or conversions are unknown, not zero, and ratios requiring them cannot be inferred. Separate engagement from conversions. Avoid causal claims and statistical significance. Zero measured results mean no evidence yet. Never claim variant winners from unlinked cumulative post metrics.", {**metrics, **self.guidance(campaign, "insights")}, Observations)["observations"]
 

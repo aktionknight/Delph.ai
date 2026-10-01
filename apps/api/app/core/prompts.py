@@ -19,8 +19,19 @@ def load_prompt(role, payload, schema):
         task = "learning"
     elif schema.__name__ == "VisualPlan":
         task = "visual"
+    elif schema.__name__ == "Narration":
+        task = "narration"
     names = ["system", task] + (["brand_fit", "audience_fit"] if role == "evaluator" else [])
     try:
-        return "\n\n".join((PROMPTS / role / f"{name}.txt").read_text(encoding="utf-8") for name in names)
+        parts = [(PROMPTS / role / f"{name}.txt").read_text(encoding="utf-8") for name in names]
+        platform = payload.get("platform")
+        if role in {"creative", "evaluator"} and platform in {"linkedin", "instagram", "x"}:
+            parts.append((PROMPTS / "creative" / f"platform_{platform}.txt").read_text(encoding="utf-8"))
+            if role == "evaluator":
+                parts.append("Assess platform_fit against this channel guidance, including tone, structure and CTA. "
+                             "Flag copy that reads like another platform and give actionable repair feedback. "
+                             "Respect brand voice and reviewer preferences; emojis and hashtags are optional. "
+                             "For narration_only, assess natural spoken delivery rather than written layout or visual directions.")
+        return "\n\n".join(parts)
     except OSError as exc:
         raise AgentError(f"Required {role} prompt file is unavailable.") from exc

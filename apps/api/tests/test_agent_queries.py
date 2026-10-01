@@ -7,7 +7,7 @@ import pytest
 from app.core.errors import AgentError
 from app.core.gemini import GeminiProvider, retry_delay
 from app.core.gemini_schema import response_schema
-from app.schemas.agent_outputs import (Content, Directions, Evaluation, Learning, Observations, Strategy, Timeline, VisualPlan)
+from app.schemas.agent_outputs import (Content, Directions, Evaluation, Learning, Narration, Observations, Strategy, Timeline, VisualPlan, XPostContent)
 from test_agents_accounts import FixtureProvider
 
 
@@ -21,7 +21,7 @@ def walk(value):
             yield from walk(child)
 
 
-@pytest.mark.parametrize("schema", [Strategy, Directions, Timeline, Content, Evaluation, Learning, Observations, VisualPlan])
+@pytest.mark.parametrize("schema", [Strategy, Directions, Timeline, Content, XPostContent, Evaluation, Learning, Narration, Observations, VisualPlan])
 def test_all_wire_schemas_remove_complex_constraints_without_mutating_validation(schema):
     original = schema.model_json_schema()
     wire = response_schema(schema)

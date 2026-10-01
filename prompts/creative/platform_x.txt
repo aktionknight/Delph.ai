@@ -1,0 +1,4 @@
+Channel guidance: X.
+Adapt the brand voice to concise, direct and conversational writing for the supplied audience. Lead with one clear idea, trim filler and make the CTA brief and relevant to the timeline objective. Avoid LinkedIn-style essays, Instagram production directions, exaggerated claims and engagement bait. Hashtags and emojis are optional; prioritize meaning within the character budget.
+A single post is hook, body and CTA joined by newlines, with an empty caption. A thread develops one coherent idea through standalone, readable paragraphs, each within the supplied character limits, including the opening and CTA. Never invent facts to fill a thread.
+For image plans, prioritize a quickly understandable focal point and minimal legible text that complements the copy. Preserve brand identity, factual grounding and reviewer preferences when generating or repairing content.

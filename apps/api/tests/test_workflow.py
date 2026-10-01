@@ -67,7 +67,7 @@ def test_golden_path_with_repair_and_memory(client):
     replay = client.get(f"/campaigns/{c['id']}/stream")
     assert "event: complete" in replay.text
     assert "evaluation_failed" in replay.text
-    exported = client.get(f"/campaigns/{c['id']}/export").json()
+    exported = client.get(f"/campaigns/{c['id']}/export?format=json").json()
     assert exported["campaign"]["assets"][0]["approvals"][0]["version"] == 2
     assert exported["generation"] == "deterministic"
 
