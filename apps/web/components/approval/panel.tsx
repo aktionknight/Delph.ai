@@ -10,10 +10,13 @@ import type { Action } from "@/components/campaign/workspace";
 const sections: CampaignSection[] = ["brief", "strategy", "direction", "timeline", "insights", "learnings"];
 
 export function ApprovalPanel(props: { campaign: Campaign; brand?: Brand; action: Action; busy: boolean }) {
-  return <><section className="panel"><h2>Campaign review and fine tuning</h2>
-    <p className="muted">Review each planning section, request changes, or generate a revision with your instructions. Every saved revision needs its own review.</p>
-    {sections.map((section) => <PlanningReview key={section} {...props} section={section} />)}
-  </section><ContentPanel {...props} approvalsOnly /></>;
+  return <><details className="panel">
+    <summary><h2>Campaign review and fine tuning</h2></summary>
+    <div style={{ marginTop: '1rem' }}>
+      <p className="muted">Review each planning section, request changes, or generate a revision with your instructions. Every saved revision needs its own review.</p>
+      {sections.map((section) => <PlanningReview key={section} {...props} section={section} />)}
+    </div>
+  </details><ContentPanel {...props} approvalsOnly /></>;
 }
 
 function PlanningReview({ campaign, section, action, busy }: {
