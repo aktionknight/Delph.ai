@@ -299,15 +299,30 @@ class SocialAccounts:
             return result
         if "r_member_postAnalytics" not in connection["scopes"]:
             raise SocialError("LinkedIn insights need approved r_member_postAnalytics access. Enable LINKEDIN_ANALYTICS_ENABLED and reconnect after app approval.")
-        for query_type, field in (("IMPRESSION", "impressions"), ("REACTION", "likes"), ("COMMENT", "comments"), ("RESHARE", "reposts")):
+        for query_type, field in (("IMPRESSION", "impressions"), ("LINK_CLICKS", "clicks"), ("REACTION", "likes"), ("COMMENT", "comments"), ("RESHARE", "reposts")):
+            total = 0
+            supported = True
             for post_id in post_ids:
-                kind = "share" if post_id.startswith("urn:li:share:") else "ugcPost"
-                data = self.json(self.request("GET", "https://api.linkedin.com/rest/memberCreatorPostAnalytics", token=token,
-                    headers=self.linkedin_headers(), params={"q": "entity", "entity": f"({kind}:{post_id})", "queryType": query_type, "aggregation": "TOTAL"}))
+                # LinkedIn's Rest.li analytics finder uses `ugc` as the discriminator
+                # even though the post URN itself is `urn:li:ugcPost:...`.
+                kind = "share" if post_id.startswith("urn:li:share:") else "ugc"
+                # Preserve the Rest.li finder syntax while percent-encoding the URN.
+                # Passing this through httpx `params` would escape the structural syntax.
+                query = urlencode({"q": "entity", "entity": f"({kind}:{quote(post_id, safe='')})",
+                                   "queryType": query_type, "aggregation": "TOTAL"}, safe="():%")
+                url = "https://api.linkedin.com/rest/memberCreatorPostAnalytics?" + query
+                try:
+                    data = self.json(self.request("GET", url, token=token, headers=self.linkedin_headers()))
+                except SocialError as exc:
+                    if exc.status_code == 400:
+                        supported = False
+                        break
+                    raise
                 elements = data.get("elements")
                 if not isinstance(elements, list) or not elements or any(not isinstance(e.get("count"), int) or e["count"] < 0 for e in elements):
                     raise SocialError("LinkedIn returned no complete analytics snapshot; previous data was preserved.")
-                result[field] = (result[field] or 0) + sum(e["count"] for e in elements)
+                total += sum(e["count"] for e in elements)
+            result[field] = total if supported else None
         return result
 
     def close(self):

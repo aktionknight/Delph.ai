@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, CalendarDays, Download, FileText, Image as ImageIcon, Mic } from "lucide-react";
-import { title, type Asset, type Campaign, type Media, type TimelineItem } from "@/lib/api";
+import { api, title, type Asset, type Campaign, type ConnectionResponse, type Media, type TimelineItem } from "@/lib/api";
 import { downloadFile, saveText } from "@/lib/download";
 import { Badge, Empty, ErrorNotice, Status } from "@/components/ui";
 
@@ -10,9 +11,18 @@ type Group = { key: string; item?: TimelineItem; assets: Asset[]; historical?: b
 type DownloadAction = (path: string, filename: string, type?: string) => Promise<void>;
 
 export function DeliverablesPanel({ campaign }: { campaign: Campaign }) {
+  const client = useQueryClient();
   const [error, setError] = useState<unknown>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const me = useQuery({ queryKey: ["me"], queryFn: () => api<{ demo: boolean }>("/me") });
+  const connections = useQuery({ queryKey: ["connections", campaign.brand_id], queryFn: () => api<ConnectionResponse>(`/connections?brand_id=${encodeURIComponent(campaign.brand_id)}`), enabled: me.data?.demo === false });
+  const publish = useMutation({ mutationFn: ({ asset, connectionId }: { asset: Asset; connectionId: string }) => api<Asset>(`/assets/${encodeURIComponent(asset.id)}/social-publish`, "POST", { version: asset.current_version, connection_id: connectionId }), onSuccess: (updatedAsset) => {
+    setNotice(updatedAsset.status === "published" ? "LinkedIn post published. Campaign and analytics are refreshing." : updatedAsset.status === "publish_unknown" ? "LinkedIn could not confirm the post outcome. Inspect the account before retrying. Campaign and analytics are refreshing." : updatedAsset.status === "publish_failed" ? "LinkedIn publishing failed. Review the error before retrying. Campaign and analytics are refreshing." : `LinkedIn publication status: ${title(updatedAsset.status)}. Campaign and analytics are refreshing.`);
+    void client.invalidateQueries({ queryKey: ["campaign", campaign.id] });
+    void client.invalidateQueries({ queryKey: ["analytics", campaign.id] });
+  } });
+  const linkedInConnection = connections.data?.connections.find((connection) => connection.platform === "linkedin" && connection.status === "active");
   const activeIds = new Set(campaign.timeline.map((item) => item.id));
   const groups: Group[] = [...campaign.timeline].sort((a, b) => a.day - b.day).map((item) => ({
     key: item.id, item, assets: campaign.assets.filter((asset) => asset.timeline_item_id === item.id)
@@ -35,24 +45,29 @@ export function DeliverablesPanel({ campaign }: { campaign: Campaign }) {
       setNotice("Download started. Check your browser downloads.");
     } catch (problem) { setError(problem); } finally { setDownloading(null); }
   };
+  const publishAsset = (asset: Asset) => {
+    if (!linkedInConnection) return;
+    setNotice("");
+    publish.mutate({ asset, connectionId: linkedInConnection.id });
+  };
   const campaignZip = `/api/campaigns/${encodeURIComponent(campaign.id)}/deliverables/download`;
   return <section className="deliverables-panel" aria-label="Campaign deliverables">
     <div className="section-heading"><div><h2>Your campaign deliverables</h2><p className="muted">Current copy, scripts, images and voiceovers, organized by timeline item.</p></div>
       <button className="button primary" disabled={!!downloading || !campaign.assets.length} onClick={() => void download(campaignZip, `campaign-${campaign.id}-deliverables.zip`, "application/zip")}><Archive size={16} />{downloading === campaignZip ? "Preparing ZIP…" : "Download all assets"}</button>
     </div>
     <div className="deliverables-summary"><Badge>{campaign.assets.length} assets</Badge><Badge>{campaign.timeline.length} timeline items</Badge><p className="small muted">Downloads include current versions, including drafts. Review each asset’s status before use. Export campaign above downloads the full campaign as a PDF.</p></div>
-    <ErrorNotice error={error} />
+    <ErrorNotice error={error || me.error || connections.error || publish.error} />
     {notice && <p className="small muted" role="status">{notice}</p>}
     {!groups.length && !campaign.assets.length && <div className="panel"><Empty title="Your deliverables will appear here">Build a timeline and create assets in the content canvas to collect your campaign files.</Empty></div>}
-    {groups.map((group) => <DeliverableGroup key={group.key} group={group} download={download} downloading={downloading} />)}
+    {groups.map((group) => <DeliverableGroup key={group.key} group={group} download={download} downloading={downloading} connectionId={linkedInConnection?.id} publishing={publish.isPending} publish={publishAsset} isDemo={me.data?.demo} />)}
     {historical.size > 0 && <div className="deliverables-history"><h3>Previous timeline items</h3><p className="small muted">These assets retain their original schedule after the timeline was replaced.</p>
-      {[...historical.values()].sort((a, b) => (a.item?.day ?? Infinity) - (b.item?.day ?? Infinity)).map((group) => <DeliverableGroup key={group.key} group={group} download={download} downloading={downloading} />)}
+      {[...historical.values()].sort((a, b) => (a.item?.day ?? Infinity) - (b.item?.day ?? Infinity)).map((group) => <DeliverableGroup key={group.key} group={group} download={download} downloading={downloading} connectionId={linkedInConnection?.id} publishing={publish.isPending} publish={publishAsset} isDemo={me.data?.demo} />)}
     </div>}
-    {unmapped.length > 0 && <DeliverableGroup group={{ key: "unmapped", assets: unmapped }} download={download} downloading={downloading} />}
+    {unmapped.length > 0 && <DeliverableGroup group={{ key: "unmapped", assets: unmapped }} download={download} downloading={downloading} connectionId={linkedInConnection?.id} publishing={publish.isPending} publish={publishAsset} isDemo={me.data?.demo} />}
   </section>;
 }
 
-function DeliverableGroup({ group, download, downloading }: { group: Group; download: DownloadAction; downloading: string | null }) {
+function DeliverableGroup({ group, download, downloading, connectionId, publishing, publish, isDemo }: { group: Group; download: DownloadAction; downloading: string | null; connectionId?: string; publishing: boolean; publish: (asset: Asset) => void; isDemo?: boolean }) {
   const item = group.item;
   return <section className="deliverables-group panel" aria-label={item ? `Day ${item.day}: ${item.objective}` : group.historical ? "Previous timeline item" : "Unmapped assets"}>
     <header className="deliverables-group-heading"><CalendarDays size={20} /><div>
@@ -60,11 +75,11 @@ function DeliverableGroup({ group, download, downloading }: { group: Group; down
       <h3>{item?.objective || (group.historical ? "Original schedule unavailable" : "Unmapped assets")}</h3>
       {!item && <p className="small muted">{group.historical ? "The timeline link is retained, but its original details are unavailable." : "These legacy assets have no saved timeline link."}</p>}
     </div><span className="small muted">{group.assets.length} asset{group.assets.length === 1 ? "" : "s"}</span></header>
-    {!group.assets.length ? <p className="deliverables-missing">No deliverables yet. Create an asset for this timeline item in the content canvas.</p> : <div className="deliverables-assets">{group.assets.map((asset) => <AssetDeliverables key={asset.id} asset={asset} item={item} download={download} downloading={downloading} />)}</div>}
+    {!group.assets.length ? <p className="deliverables-missing">No deliverables yet. Create an asset for this timeline item in the content canvas.</p> : <div className="deliverables-assets">{group.assets.map((asset) => <AssetDeliverables key={asset.id} asset={asset} item={item} download={download} downloading={downloading} connectionId={connectionId} publishing={publishing} publish={publish} isDemo={isDemo} />)}</div>}
   </section>;
 }
 
-function AssetDeliverables({ asset, item, download, downloading }: { asset: Asset; item?: TimelineItem; download: DownloadAction; downloading: string | null }) {
+function AssetDeliverables({ asset, item, download, downloading, connectionId, publishing, publish, isDemo }: { asset: Asset; item?: TimelineItem; download: DownloadAction; downloading: string | null; connectionId?: string; publishing: boolean; publish: (asset: Asset) => void; isDemo?: boolean }) {
   const version = asset.versions.find((entry) => entry.version === asset.current_version);
   const media = version?.media_items?.length ? version.media_items : version?.media ? [version.media] : [];
   const prefix = `${asset.platform}-${asset.id}-v${asset.current_version}`;
@@ -72,10 +87,21 @@ function AssetDeliverables({ asset, item, download, downloading }: { asset: Asse
   const snapshot = asset.timeline_snapshot;
   const changed = !!snapshot && !!item && (["day", "stage", "platform", "asset_type", "objective"] as const).some((field) => snapshot[field] !== item[field]);
   const isScript = /reel|script|video/.test(asset.asset_type);
+  const latestApproval = asset.approvals[asset.approvals.length - 1];
+  const approved = latestApproval?.version === asset.current_version && latestApproval.decision === "approved" && !!version?.evaluation?.passed;
+  const linkedinPost = asset.platform === "linkedin" && /post/.test(asset.asset_type);
+  const publicationStatus = asset.publication?.status || (["scheduled", "publishing", "publish_failed", "publish_unknown"].includes(asset.status) ? asset.status : undefined);
+  const needsInspection = publicationStatus === "publish_unknown";
+  const inFlight = publicationStatus === "scheduled" || publicationStatus === "publishing";
+  const canPublish = isDemo === false && linkedinPost && approved && ["approved", "publish_failed"].includes(asset.status) && !needsInspection && !inFlight && !(asset.publication?.post_ids.length);
   return <article className="deliverables-asset">
     <div className="deliverables-asset-heading"><div><div className="row"><Status value={asset.status} /><Badge>Version {asset.current_version}</Badge><span className="small muted">{title(asset.platform)} · {title(asset.asset_type)}</span></div><h4>{version?.hook || `${title(asset.platform)} ${title(asset.asset_type)}`}</h4></div>
       <button className="button secondary small" disabled={!!downloading || !version} onClick={() => void download(archivePath, `${prefix}.zip`, "application/zip")}><Download size={15} />{downloading === archivePath ? "Preparing…" : "Asset ZIP"}</button>
     </div>
+    {linkedinPost && <div className="deliverables-publish">
+      {publicationStatus && <div className="deliverables-publish-status"><Badge tone={publicationStatus === "published" ? "green" : publicationStatus === "publish_failed" || needsInspection ? "amber" : "neutral"}>{title(publicationStatus)}</Badge>{asset.publication && <span className="small muted">Version {asset.publication.version} · {asset.publication.account_name}</span>}{publicationStatus === "published" && asset.publication?.url && <a className="text-link" href={asset.publication.url} target="_blank" rel="noreferrer">View LinkedIn post</a>}{asset.publication?.error && <p className="small notice">{asset.publication.error}</p>}{needsInspection && <p className="small muted">Check the LinkedIn account before taking action. This post will not be retried automatically.</p>}{inFlight && <p className="small muted">Publication is in progress. Refresh this campaign to check its status.</p>}</div>}
+      {canPublish ? <><p className="small muted">Publish the currently approved version to the active LinkedIn account for this brand.</p><button className="button primary small" disabled={publishing} onClick={() => publish(asset)}>{publishing ? "Publishing…" : asset.status === "publish_failed" ? "Retry failed post" : "Publish approved post"}</button></> : !publicationStatus || (publicationStatus !== "published" && !inFlight && !needsInspection) ? <p className="small muted">{isDemo === undefined ? "Checking workspace publishing access…" : isDemo ? "Live LinkedIn publishing is unavailable in demo workspaces." : !approved ? "Approve and evaluate this exact version before publishing." : !connectionId ? "Connect an active LinkedIn account for this brand to publish." : asset.publication?.post_ids.length ? "Remote post receipts already exist. Inspect the LinkedIn account before retrying." : "This LinkedIn asset is not ready to publish."}</p> : null}
+    </div>}
     {changed && <p className="small deliverables-snapshot"><strong>Schedule changed.</strong> Originally created for day {snapshot.day} · {title(snapshot.platform)} · {title(snapshot.asset_type)} · {title(snapshot.stage)}: {snapshot.objective}</p>}
     {!version ? <p className="deliverables-missing">The current asset version is unavailable.</p> : <>
       <div className="deliverables-files">
