@@ -16,7 +16,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Delph.ai — From idea to impact",
+  title: "Delph.ai",
   description: "One connected workspace for campaign strategy, content, approval, and learning.",
   icons: {
     icon: "/logo.png",
