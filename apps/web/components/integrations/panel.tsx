@@ -34,16 +34,26 @@ export function IntegrationsPanel({ brands }: { brands: Brand[] }) {
     {me.data?.demo && <div className="notice">Social OAuth and live publishing require a signed-in MongoDB workspace.</div>}
     {!brands.length && <div className="notice">Add a brand before connecting social accounts.</div>}
     <label>Brand<select value={selected || ""} onChange={(e) => setBrandId(e.target.value)} disabled={busy}>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
-    <div className="learning-grid">{["x", "linkedin"].map((platform) => {
-      const connection = query.data?.connections.find((c) => c.platform === platform);
-      const provider = query.data?.providers.find((p) => p.platform === platform);
-      return <section className="panel" key={platform}><div className="row"><h2>{platform === "x" ? "X" : "LinkedIn"}</h2><Badge tone={connection?.status === "active" ? "green" : "amber"}>{connection ? title(connection.status) : "Not connected"}</Badge></div>
+    <div className="learning-grid">{["linkedin", "x", "instagram"].map((platform) => {
+      const isBlocked = platform === "x" || platform === "instagram";
+      const connection = !isBlocked ? query.data?.connections.find((c) => c.platform === platform) : null;
+      const provider = !isBlocked ? query.data?.providers.find((p) => p.platform === platform) : null;
+      const displayName = platform === "x" ? "X (Twitter)" : platform === "instagram" ? "Instagram" : "LinkedIn";
+      return <section className="panel" key={platform}><div className="row"><h2>{displayName}</h2><Badge tone={connection?.status === "active" ? "green" : isBlocked ? "muted" : "amber"}>{connection ? title(connection.status) : isBlocked ? "Coming Soon" : "Not connected"}</Badge></div>
         {connection && <><p>{connection.display_name}</p><p className="small muted">Token expiry: {new Date(connection.expires_at).toLocaleString()}</p></>}
-        <p className="small muted">{platform === "x" ? "Publish posts, threads and a reviewed static. X API usage requires access and may consume paid credits." : "Publish personal-profile posts and a reviewed static. Analytics requires approved member post analytics access. Some accounts need periodic reconnection."}</p>
+        <p className="small muted">{isBlocked ? "Data tracking and linking for this platform is coming in the full release." : "Publish personal-profile posts and a reviewed static. Analytics requires approved member post analytics access. Some accounts need periodic reconnection."}</p>
         {provider?.reason && <div className="notice">{provider.reason}</div>}
-        <div className="row"><button className="button primary" disabled={busy || !selected || !provider?.configured || me.data?.demo !== false} onClick={() => void connect(platform)}>{connection ? "Reconnect" : "Connect"}</button>
-        {connection?.status === "active" && <button className="button secondary" disabled={busy} onClick={() => void disconnect(connection.id)}>Disconnect</button>}</div>
+        <div className="row">
+          {isBlocked ? (
+            <button className="button primary" disabled>Coming in full release</button>
+          ) : (
+            <>
+              <button className="button primary" disabled={busy || !selected || !provider?.configured || me.data?.demo !== false} onClick={() => void connect(platform)}>{connection ? "Reconnect" : "Connect"}</button>
+              {connection?.status === "active" && <button className="button secondary" disabled={busy} onClick={() => void disconnect(connection.id)}>Disconnect</button>}
+            </>
+          )}
+        </div>
       </section>;
-    })}</div><p className="small muted">Disconnect stops future publishing with this connection. Already-published posts remain on the social platform. Instagram automation is not enabled.</p>
+    })}</div><p className="small muted">Disconnect stops future publishing with this connection. Already-published posts remain on the social platform.</p>
   </>;
 }

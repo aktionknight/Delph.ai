@@ -895,10 +895,10 @@ def create_app(database_url=None, agent_suite=None):
         campaign_record = get(db, campaign_id, "campaign")
         auth.require_owner(campaign_record, auth_user)
         data = campaign_view(db, campaign_record)
-        payload = {"mode": "local-demo" if demo else "authenticated", "generation": mode, "analytics": analytics_data(data), "campaign": data, "brand": get(db, data["brand_id"], "brand").data}
+        from ..services.exports import campaign_pdf, public_data
+        payload = {"mode": "local-demo" if demo else "authenticated", "generation": mode, "analytics": analytics_data(data), "campaign": data, "brand": public_data(get(db, data["brand_id"], "brand").data)}
         if format == "json":
             return JSONResponse(payload, headers={"Content-Disposition": f'attachment; filename="campaign-{data["id"]}.json"'})
-        from ..services.exports import campaign_pdf
         pdf_file = campaign_pdf(payload, blobs, auth_user["id"])
         return StreamingResponse(pdf_file, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="campaign-{data["id"]}.pdf"'})
 

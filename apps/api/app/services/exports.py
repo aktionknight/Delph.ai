@@ -25,17 +25,31 @@ MIME_EXTENSIONS = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".we
 PRIVATE_FIELDS = {"key", "storage", "blob", "owner_id", "password", "password_hash",
                   "access_token", "refresh_token", "token", "client_secret", "api_key",
                   "authorization", "credentials", "cookie", "signed_url", "presigned_url",
-                  "embedding", "embeddings", "chunks", "vector", "vectors", "embedding_model"}
+                  "embedding", "embeddings", "chunks", "vector", "vectors", "embedding_model",
+                  "dense_embedding", "sparse_embedding", "source_chunks"}
+
+
+def is_private_key(key: str) -> bool:
+    k = str(key).lower()
+    if k in PRIVATE_FIELDS:
+        return True
+    return any(term in k for term in ("embedding", "vector", "chunk", "_token", "_secret", "_password", "_api_key"))
+
+
+def is_numeric_vector(val) -> bool:
+    """Detect raw embedding / numeric vectors."""
+    return isinstance(val, (list, tuple)) and len(val) >= 8 and all(isinstance(x, (int, float)) for x in val)
 
 
 def public_data(value):
-    """Remove internal storage coordinates and credentials from portable artifacts."""
+    """Remove internal storage coordinates, credentials, and embeddings from portable artifacts."""
     if isinstance(value, dict):
         return {str(k): public_data(v) for k, v in value.items()
-                if str(k).lower() not in PRIVATE_FIELDS
-                and not str(k).lower().endswith(("_token", "_secret", "_password", "_api_key"))}
+                if not is_private_key(k) and not is_numeric_vector(v)}
     if isinstance(value, list):
-        return [public_data(v) for v in value]
+        if is_numeric_vector(value):
+            return []
+        return [public_data(v) for v in value if not is_numeric_vector(v)]
     if isinstance(value, str) and value.startswith(("http://", "https://")):
         parts = urlsplit(value)
         if any(term in parts.query.lower() for term in ("signature=", "token=", "credential=", "api_key=")):
@@ -209,7 +223,7 @@ def report_fonts():
 
 
 def campaign_pdf(payload, blobs=None, owner=None):
-    """Full structured state report; audio binaries remain in downloadable ZIPs."""
+    """Clean, structured campaign report; audio binaries remain in downloadable ZIPs."""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
@@ -218,105 +232,267 @@ def campaign_pdf(payload, blobs=None, owner=None):
     safe = public_data(payload)
     if len(_json(safe)) > MAX_REPORT_TEXT:
         raise HTTPException(413, "Campaign report exceeds the text limit. Use the JSON export for this campaign.")
-    campaign = safe["campaign"]
+    campaign = safe.get("campaign", {})
+    brand = safe.get("brand", {})
+    strategy = campaign.get("strategy") or {}
+    analytics = safe.get("analytics") or {}
     regular, bold = report_fonts()
-    styles = {"body": ParagraphStyle("body", fontName=regular, fontSize=9, leading=13, spaceAfter=6, splitLongWords=True),
-              "title": ParagraphStyle("title", fontName=bold, fontSize=26, leading=32, spaceAfter=18),
-              "section": ParagraphStyle("section", fontName=bold, fontSize=17, leading=22, textColor=colors.HexColor("#c94828"), spaceAfter=12),
-              "label": ParagraphStyle("label", fontName=bold, fontSize=10, leading=14, spaceBefore=7, spaceAfter=5)}
-    story = []
-    def paragraph(text, style="body"):
-        # Bounded paragraph size avoids pathological single-flowable layout cost.
-        value = str(text)
-        for start in range(0, max(len(value), 1), 4000):
-            part = value[start:start + 4000]
-            part = "".join(c for c in part if c in "\n\t" or ord(c) >= 32)
-            story.append(Paragraph(escape(part).replace("\n", "<br/>"), styles[style]))
-    def render(value, depth=0):
-        if isinstance(value, dict):
-            if not value:
-                paragraph("None recorded.")
-            for key, child in value.items():
-                title = str(key).replace("_", " ").capitalize()
-                if isinstance(child, (dict, list)):
-                    paragraph(title, "label")
-                    render(child, depth + 1)
-                else:
-                    paragraph(f"{title}: {child if child is not None else 'Not set'}")
-        elif isinstance(value, list):
-            if not value:
-                paragraph("None recorded.")
-            for index, child in enumerate(value, 1):
-                if isinstance(child, (dict, list)):
-                    paragraph(f"Record {index}", "label")
-                    render(child, depth + 1)
-                else:
-                    paragraph(f"{index}. {child}")
-        else:
-            paragraph(value if value is not None else "Not generated yet.")
-    def section(title, value=None):
-        story.append(PageBreak())
-        paragraph(title, "section")
-        if value is not None:
-            render(value)
 
-    paragraph("DELPH.AI / CAMPAIGN REPORT", "label")
-    paragraph(campaign.get("name", "Campaign"), "title")
-    paragraph("Complete campaign context, deliverables, review history and learning.")
-    paragraph(f"Exported {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
-    paragraph(f"Workspace mode: {safe.get('mode', 'unknown')} | Generation: {safe.get('generation', 'unknown')}")
-    paragraph("Deterministic generation and simulated metrics are demo data, not real campaign performance." if safe.get("generation") == "deterministic" else "Performance sources are identified in Analytics; generated content requires human review.")
-    paragraph("This report includes every recorded asset version. Download Deliverables for current images, audio and copy files. Exporting does not approve or publish content.")
-    paragraph("Contents", "label")
-    titles = ["Campaign brief", "Brand and source context", "Strategy", "Creative directions", "Campaign timeline", "Deliverables and version history", "Experiments", "Analytics", "Insights and learnings", "Reviews and agent traces", "Additional campaign context"]
-    for index, title in enumerate(titles, 1):
-        paragraph(f"{index:02d}  {title}")
-    brief_keys = ("id", "name", "brief", "goal", "audience", "platforms", "duration_days", "status", "created_at", "generation_mode")
-    section(titles[0], {k: campaign[k] for k in brief_keys if k in campaign})
-    section(titles[1], safe.get("brand", {}))
-    section(titles[2], campaign.get("strategy", "Not generated yet."))
-    section(titles[3], {k: campaign.get(k) for k in ("directions", "selected_direction")})
-    section(titles[4], {k: campaign.get(k, []) for k in ("timeline", "timeline_history")})
-    section(titles[5])
-    if not campaign.get("assets"):
-        paragraph("No deliverables generated yet.")
+    styles = {
+        "title": ParagraphStyle("title", fontName=bold, fontSize=22, leading=26, textColor=colors.HexColor("#1a1a1a"), spaceAfter=6),
+        "subtitle": ParagraphStyle("subtitle", fontName=regular, fontSize=9, leading=13, textColor=colors.HexColor("#666666"), spaceAfter=12),
+        "section_heading": ParagraphStyle("section_heading", fontName=bold, fontSize=13, leading=17, textColor=colors.HexColor("#c94828"), spaceBefore=14, spaceAfter=8, keepWithNext=True),
+        "item_heading": ParagraphStyle("item_heading", fontName=bold, fontSize=10, leading=14, textColor=colors.HexColor("#222222"), spaceBefore=8, spaceAfter=3, keepWithNext=True),
+        "label": ParagraphStyle("label", fontName=bold, fontSize=8.5, leading=11, textColor=colors.HexColor("#555555"), spaceBefore=4, spaceAfter=1, keepWithNext=True),
+        "body": ParagraphStyle("body", fontName=regular, fontSize=9, leading=13, textColor=colors.HexColor("#222222"), spaceAfter=4, splitLongWords=True),
+        "body_muted": ParagraphStyle("body_muted", fontName=regular, fontSize=8, leading=12, textColor=colors.HexColor("#666666"), spaceAfter=4, splitLongWords=True),
+        "bullet": ParagraphStyle("bullet", fontName=regular, fontSize=8.5, leading=12, textColor=colors.HexColor("#222222"), spaceAfter=2, leftIndent=12, splitLongWords=True),
+    }
+
+    story = []
+
+    def p(text, style="body"):
+        if text is None:
+            return
+        val = str(text)
+        for start in range(0, max(len(val), 1), 4000):
+            chunk = val[start:start + 4000]
+            chunk = "".join(c for c in chunk if c in "\n\t" or ord(c) >= 32)
+            story.append(Paragraph(escape(chunk).replace("\n", "<br/>"), styles[style]))
+
+    # Title & Metadata Header
+    p("DELPH.AI / CAMPAIGN REPORT", "label")
+    p(campaign.get("name", "Campaign"), "title")
+    p(f"Complete campaign context, deliverables, review history and learning. | Exported {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}", "subtitle")
+
+    mode_text = f"Workspace mode: {safe.get('mode', 'authenticated')} | Generation: {safe.get('generation', 'gemini')} | Status: {campaign.get('status', 'draft')}"
+    p(mode_text, "body_muted")
+    if safe.get("generation") == "deterministic" or safe.get("mode") == "local-demo" or analytics.get("is_demo"):
+        p("Deterministic generation and simulated metrics are demo data, not real campaign performance.", "body_muted")
+    else:
+        p("Performance sources are identified in Analytics; generated content requires human review.", "body_muted")
+    p("This report includes campaign context, current deliverables, version and approval history, strategy, and learnings. Exporting does not approve or publish content.", "body_muted")
+    story.append(Spacer(1, 8))
+
+    # 1. Campaign Brief & Goals
+    p("Campaign Brief", "section_heading")
+    p(f"Goal: {campaign.get('goal', 'Not set')}", "body")
+    p(f"Target Audience: {campaign.get('audience', 'Not set')}", "body")
+    platforms = ", ".join(campaign.get("platforms", [])) or "None specified"
+    p(f"Target Platforms: {platforms} | Duration: {campaign.get('duration_days', 14)} days", "body")
+    if campaign.get("brief"):
+        p("Brief Description:", "label")
+        p(campaign["brief"], "body")
+
+    # 2. Brand Context
+    p("Brand Context", "section_heading")
+    p(f"Brand: {brand.get('name', 'Brand')} | Voice: {brand.get('voice', 'Not set')}", "body")
+    if brand.get("description"):
+        p(f"Description: {brand['description']}", "body")
+    if brand.get("approved_claims"):
+        p("Approved Claims:", "label")
+        for claim in brand["approved_claims"]:
+            p(f"• {claim}", "bullet")
+    if brand.get("forbidden_phrases"):
+        p("Forbidden Phrases:", "label")
+        for phrase in brand["forbidden_phrases"]:
+            p(f"• {phrase}", "bullet")
+    sources = brand.get("sources", [])
+    if sources:
+        p("Grounding Sources:", "label")
+        for s in sources:
+            source_name = s.get("name") or "Source"
+            source_type = s.get("source_type", "document")
+            p(f"• {source_name} ({source_type})", "bullet")
+
+    # 3. Strategy & Creative Direction
+    p("Campaign Strategy & Creative Direction", "section_heading")
+    if strategy and isinstance(strategy, dict):
+        if strategy.get("positioning"):
+            p("Positioning Statement:", "label")
+            p(strategy["positioning"], "body")
+        if strategy.get("core_message"):
+            p("Core Message:", "label")
+            p(strategy["core_message"], "body")
+        if strategy.get("content_pillars"):
+            p("Content Pillars:", "label")
+            for idx, pillar in enumerate(strategy["content_pillars"], 1):
+                p(f"{idx}. {pillar}", "bullet")
+        if strategy.get("creative_directions"):
+            selected_id = campaign.get("selected_direction")
+            for d in strategy["creative_directions"]:
+                is_selected = d.get("id") == selected_id
+                tag = " [SELECTED DIRECTION]" if is_selected else ""
+                p(f"Creative Direction: {d.get('name', 'Direction')}{tag}", "item_heading")
+                p(d.get("description", ""), "body")
+                if d.get("rationale"):
+                    p(f"Why this works: {d['rationale']}", "body_muted")
+    else:
+        p("Strategy not generated yet.", "body_muted")
+
+    # 4. Campaign Timeline
+    p("Campaign Timeline Schedule", "section_heading")
+    timeline = campaign.get("timeline", [])
+    if timeline:
+        for item in timeline:
+            day_str = f"Day {item.get('day', 1)}"
+            meta = f"{item.get('stage', '').title()} · {item.get('platform', '').title()} · {item.get('asset_type', '').title()}"
+            p(f"• {day_str} ({meta}): {item.get('objective', '')}", "bullet")
+    else:
+        p("No timeline schedule generated yet.", "body_muted")
+    if campaign.get("timeline_history"):
+        p(f"Timeline schedule revisions: {len(campaign['timeline_history'])} prior version(s) recorded.", "body_muted")
+
+    # 5. Deliverables & Content Assets
+    story.append(PageBreak())
+    p("Deliverables, Content Assets & Approval History", "section_heading")
+    assets = campaign.get("assets", [])
+    if not assets:
+        p("No deliverables generated yet.", "body_muted")
+
     image_total = 0
-    raw_assets = {a["id"]: a for a in payload["campaign"].get("assets", [])}
-    for index, asset in enumerate(campaign.get("assets", []), 1):
-        if index > 1:
-            story.append(PageBreak())
-        paragraph(f"Asset {index}: {asset.get('platform', '')} / {asset.get('asset_type', '')}", "label")
-        render(asset)
-        raw = raw_assets[asset["id"]]
-        for media in media_items(current(raw)):
-            if media.get("kind") != "image":
-                continue
-            paragraph("Current image preview", "label")
-            try:
-                if blobs is None or image_total >= MAX_EXPORT_BYTES:
-                    raise StorageError("Preview budget unavailable.")
-                binary = read_binary(blobs, media, owner, min(MAX_MEDIA_BYTES, MAX_EXPORT_BYTES - image_total))
-                image_total += len(binary)
-                from PIL import Image as PILImage
-                with PILImage.open(io.BytesIO(binary)) as picture:
-                    if picture.width * picture.height > 16_000_000:
-                        raise ValueError("Image exceeds preview pixel budget.")
-                    picture.thumbnail((1200, 1200))
-                    preview = io.BytesIO()
-                    picture.convert("RGB").save(preview, format="JPEG", quality=85)
-                    width, height = picture.size
-                preview.seek(0)
-                scale = min(480 / width, 420 / height, 1)
-                story.append(Image(preview, width=width * scale, height=height * scale))
-                story.append(Spacer(1, 10))
-            except (StorageError, HTTPException, ValueError, OSError):
-                paragraph("Image preview unavailable. The recorded image metadata is retained above; retry its download from Deliverables.")
-    section(titles[6], campaign.get("experiments", []))
-    section(titles[7], safe.get("analytics", {}))
-    section(titles[8], {k: campaign.get(k, []) for k in ("insights", "learnings", "learning_history")})
-    section(titles[9], {k: campaign.get(k, []) for k in ("reviews", "trace", "agent_runs")})
-    covered = set(brief_keys) | {"strategy", "directions", "selected_direction", "timeline", "timeline_history", "assets", "experiments", "insights", "learnings", "learning_history", "reviews", "trace", "agent_runs"}
-    section(titles[10], {k: v for k, v in campaign.items() if k not in covered})
+    raw_assets = {a["id"]: a for a in payload.get("campaign", {}).get("assets", [])}
+    for index, asset in enumerate(assets, 1):
+        status_tag = asset.get("status", "draft").upper()
+        p(f"Asset {index}: {str(asset.get('platform', '')).upper()} / {str(asset.get('asset_type', '')).upper()} (v{asset.get('current_version', 1)}) — Status: {status_tag}", "item_heading")
+
+        versions = asset.get("versions", [])
+        curr_ver = next((v for v in reversed(versions) if v.get("version") == asset.get("current_version")), None) or (versions[-1] if versions else {})
+
+        if curr_ver.get("hook"):
+            p(f"Hook: {curr_ver['hook']}", "body")
+        if curr_ver.get("body"):
+            p(f"Body: {curr_ver['body']}", "body")
+        if curr_ver.get("script") and curr_ver.get("script") != curr_ver.get("body"):
+            p(f"Script: {curr_ver['script']}", "body")
+        if curr_ver.get("cta"):
+            p(f"Call to Action: {curr_ver['cta']}", "body")
+        if curr_ver.get("caption"):
+            p(f"Caption: {curr_ver['caption']}", "body")
+        if curr_ver.get("narration"):
+            p(f"Narration: {curr_ver['narration']}", "body")
+        for m in media_items(curr_ver):
+            if m.get("script") and m.get("script") != curr_ver.get("script"):
+                p(f"Media script ({m.get('kind', 'media')}): {m['script']}", "body")
+
+        approvals = asset.get("approvals", [])
+        if approvals:
+            for app in approvals:
+                dec = app.get("decision", "reviewed")
+                ver = app.get("version", asset.get("current_version"))
+                fb = app.get("feedback") or ""
+                p(f"Approval: {dec.title()} for version {ver} — Feedback: \"{fb}\"", "body_muted")
+
+        eval_data = curr_ver.get("evaluation")
+        if isinstance(eval_data, dict):
+            passed = eval_data.get("passed")
+            eval_status = "Passed AI Evaluation" if passed else "Needs Review"
+            issues = eval_data.get("issues", [])
+            issues_str = f" | Issues: {', '.join(str(i) for i in issues)}" if issues else ""
+            p(f"AI Evaluation: {eval_status}{issues_str}", "body_muted")
+
+        prior_versions = [v for v in versions if v.get("version") != asset.get("current_version")]
+        if prior_versions:
+            p("Version History:", "label")
+            for pv in prior_versions:
+                v_num = pv.get("version", "?")
+                parts = []
+                if pv.get("hook"): parts.append(f'Hook: "{pv["hook"]}"')
+                if pv.get("body"): parts.append(f'Body: "{pv["body"]}"')
+                if pv.get("script"): parts.append(f'Script: "{pv["script"]}"')
+                if pv.get("caption"): parts.append(f'Caption: "{pv["caption"]}"')
+                if pv.get("narration"): parts.append(f'Narration: "{pv["narration"]}"')
+                for m in media_items(pv):
+                    if m.get("script"): parts.append(f'Media script ({m.get("kind", "media")}): "{m["script"]}"')
+                parts_str = " | ".join(parts) if parts else "Draft revision"
+                p(f"• v{v_num}: {parts_str}", "bullet")
+
+        raw = raw_assets.get(asset["id"])
+        if raw:
+            for media in media_items(current(raw)):
+                if media.get("kind") != "image":
+                    continue
+                p("Current Image Preview:", "label")
+                try:
+                    if blobs is None or image_total >= MAX_EXPORT_BYTES:
+                        raise StorageError("Preview budget unavailable.")
+                    binary = read_binary(blobs, media, owner, min(MAX_MEDIA_BYTES, MAX_EXPORT_BYTES - image_total))
+                    image_total += len(binary)
+                    from PIL import Image as PILImage
+                    with PILImage.open(io.BytesIO(binary)) as picture:
+                        if picture.width * picture.height > 16_000_000:
+                            raise ValueError("Image exceeds preview pixel budget.")
+                        picture.thumbnail((1200, 1200))
+                        preview = io.BytesIO()
+                        picture.convert("RGB").save(preview, format="JPEG", quality=85)
+                        width, height = picture.size
+                    preview.seek(0)
+                    scale = min(480 / width, 360 / height, 1)
+                    story.append(Image(preview, width=width * scale, height=height * scale))
+                    story.append(Spacer(1, 8))
+                except Exception:
+                    p("Image preview unavailable; downloadable in Deliverables bundle.", "body_muted")
+        story.append(Spacer(1, 6))
+
+    # 6. Experiments & Variants
+    experiments = campaign.get("experiments", [])
+    if experiments:
+        p("Campaign Experiments & Variant Testing", "section_heading")
+        for exp in experiments:
+            prov = "Simulated metrics" if exp.get("is_demo") else "Recorded results"
+            p(f"Experiment: {exp.get('name', 'Experiment')} (Variable: {exp.get('variable', 'hook')}) — {prov}", "item_heading")
+            for var in exp.get("variants", []):
+                hook = var.get("hook", "Variant")
+                stats = f"Impressions: {var.get('impressions', 0):,} | Clicks: {var.get('clicks', 0):,} | CTR: {var.get('ctr', 0)}% | Conversions: {var.get('conversions', 0)}"
+                p(f"• Variant {var.get('label', '')}: \"{hook}\" — {stats}", "bullet")
+
+    # 7. Analytics & Performance
+    p("Analytics & Performance", "section_heading")
+    analytics_prov = analytics.get("provenance") or ("Simulated metrics · not real performance" if analytics.get("is_demo") else "Recorded performance")
+    p(f"Source: {analytics_prov}", "body_muted")
+    p(f"Key Metrics: Impressions: {analytics.get('impressions', 0):,} | Clicks: {analytics.get('clicks', 0):,} | Conversions: {analytics.get('conversions', 0)} | CTR: {analytics.get('ctr', 0)}", "body")
+    if analytics.get("platforms"):
+        p("Platform Performance Breakdown:", "label")
+        for plat in analytics["platforms"]:
+            p(f"• {plat.get('platform', '').title()}: {plat.get('impressions', 0):,} impressions, {plat.get('clicks', 0):,} clicks, {plat.get('conversions', 0)} conversions", "bullet")
+    if analytics.get("observations"):
+        p("Performance Observations:", "label")
+        for obs in analytics["observations"]:
+            p(f"• {obs}", "bullet")
+
+    # 8. Insights & Learnings
+    p("Campaign Insights & Learnings", "section_heading")
+    insights = campaign.get("insights", [])
+    if insights:
+        p("Insights:", "label")
+        for ins in insights:
+            p(f"• {ins}", "bullet")
+    learnings = campaign.get("learnings", [])
+    if learnings:
+        p("Hypotheses & Learnings:", "label")
+        for lr in learnings:
+            conf = f" (Confidence: {int(lr['confidence'] * 100)}%)" if "confidence" in lr else ""
+            ev = f" — Evidence: {lr.get('evidence', '')}" if lr.get("evidence") else ""
+            p(f"• {lr.get('statement', '')}{conf}{ev}", "bullet")
+    if not insights and not learnings:
+        p("No learnings or insights recorded yet.", "body_muted")
+
+    # 9. Activity Trace & Planning Reviews
+    p("Activity Trace & Planning Reviews", "section_heading")
+    reviews = campaign.get("reviews", {})
+    if isinstance(reviews, dict) and reviews:
+        p("Section Reviews:", "label")
+        for sec_name, rev in reviews.items():
+            if isinstance(rev, dict):
+                p(f"• {sec_name.title()} Review: Status: {rev.get('status', 'pending')} | Notes: {rev.get('notes', 'None')}", "bullet")
+    trace = campaign.get("trace", [])
+    if trace:
+        p(f"Activity Trace Log (Total events: {len(trace)}):", "label")
+        key_events = trace[-20:] if len(trace) > 20 else trace
+        for ev in key_events:
+            ts = str(ev.get("timestamp", ""))[:19].replace("T", " ")
+            p(f"• {ts} [{ev.get('event_type', 'event')}] {ev.get('message', '')} ({ev.get('status', 'ok')})", "bullet")
+
     output = io.BytesIO()
     def page_footer(canvas, document):
         canvas.saveState()
