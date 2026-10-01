@@ -253,10 +253,8 @@ def create_app(database_url=None, agent_suite=None):
     def delete_brand(brand_id: str, db: Session = Depends(session)):
         b = get(db, brand_id, "brand")
         campaigns = [c for c in db.list("campaign") if c.parent_id == brand_id or c.data.get("brand_id") == brand_id]
-        for c in campaigns:
-            for a in db.list("asset", c.id):
-                db.delete(a)
-            db.delete(c)
+        if campaigns:
+            raise HTTPException(409, "Remove this brand's campaigns first. Campaign history and publication records must not be deleted implicitly.")
         db.delete(b)
         db.commit()
         return {"ok": True, "id": brand_id}

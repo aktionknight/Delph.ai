@@ -27,6 +27,21 @@ def campaign(client):
     return c
 
 
+def test_brand_and_source_lifecycle_preserves_campaigns(client):
+    brand = post(client, "/brands", {"name": "Lifecycle", "description": "Brand lifecycle testing", "voice": "Clear"})
+    prefix = f"/brands/{brand['id']}"
+    updated = post(client, prefix + "/sources", {"name": "Product facts", "text": "The product connects campaign planning and review."})
+    source_id = updated["sources"][0]["id"]
+    assert client.delete(prefix + f"/sources/{source_id}").json()["sources"] == []
+    assert client.delete(prefix + f"/sources/{source_id}").status_code == 404
+    c = post(client, "/campaigns", {"brand_id": brand["id"], "name": "Lifecycle launch", "brief": "Launch our campaign planning product.", "goal": "Awareness", "audience": "Marketing teams", "platforms": ["linkedin"], "duration_days": 7})
+    assert client.delete(prefix).status_code == 409
+    assert client.get(f"/campaigns/{c['id']}").status_code == 200
+    assert client.delete(f"/campaigns/{c['id']}").status_code == 200
+    assert client.delete(prefix).status_code == 200
+    assert all(item["id"] != brand["id"] for item in client.get("/brands").json())
+
+
 def planned(client):
     c = campaign(client)
     prefix = f"/campaigns/{c['id']}"
