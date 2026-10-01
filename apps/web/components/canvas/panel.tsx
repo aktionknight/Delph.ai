@@ -72,7 +72,7 @@ export function ContentPanel({ campaign, brand, action, busy, approvalsOnly }: {
           <Status value={asset.status} />
         </button>;
       })}</div>
-      {selected && <AssetEditor key={`${selected.id}-${selected.current_version}`} asset={selected} campaign={campaign} brand={brand} action={action} busy={busy} />}
+      {selected && <AssetEditor key={`${selected.id}-${selected.current_version}`} asset={selected} campaign={campaign} brand={brand} action={action} busy={busy} approvalsOnly={approvalsOnly} />}
     </div>}
   </>;
 }
