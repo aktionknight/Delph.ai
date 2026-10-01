@@ -890,6 +890,27 @@ def create_app(database_url=None, agent_suite=None):
         data = campaign_view(db, get(db, campaign_id, "campaign"))
         return JSONResponse({"mode": "local-demo" if demo else "authenticated", "generation": mode, "analytics": analytics_data(data), "campaign": data, "brand": get(db, data["brand_id"], "brand").data}, headers={"Content-Disposition": f'attachment; filename="campaign-{data["id"]}.json"'})
 
+    @app.get("/campaigns/{campaign_id}/deliverables/download")
+    def download_campaign_deliverables(campaign_id: str, auth_user=Depends(auth.user), db: Session = Depends(session)):
+        from ..services.exports import deliverables_zip
+        campaign = get(db, campaign_id, "campaign")
+        auth.require_owner(campaign, auth_user)
+        data = campaign_view(db, campaign)
+        zip_file = deliverables_zip(data, blobs, auth_user["id"])
+        return StreamingResponse(zip_file, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="campaign-{campaign_id}-deliverables.zip"'})
+
+    @app.get("/assets/{asset_id}/deliverables/download")
+    def download_asset_deliverables(asset_id: str, auth_user=Depends(auth.user), db: Session = Depends(session)):
+        from ..services.exports import deliverables_zip
+        asset = get(db, asset_id, "asset")
+        auth.require_owner(asset, auth_user)
+        campaign_record = get(db, asset.data["campaign_id"], "campaign")
+        campaign = campaign_view(db, campaign_record)
+        # Filter to only this asset
+        campaign["assets"] = [a for a in campaign.get("assets", []) if a["id"] == asset_id]
+        zip_file = deliverables_zip(campaign, blobs, auth_user["id"])
+        return StreamingResponse(zip_file, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="asset-{asset_id}-deliverables.zip"'})
+
     from ..workers.jobs import job_routes
     from .social_routes import social_routes
     app.include_router(social_routes(repository, auth, accounts, publisher, session, get, campaign_view, demo))
