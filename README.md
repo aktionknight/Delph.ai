@@ -1,6 +1,11 @@
-﻿# Campaign Launchpad
+﻿# Delph.ai - The Social Media Content Suite
 
+The Platform : 
 A connected campaign workspace: brand documents → strategy → creative direction → timeline → content → evaluation and repair → human approval → experiments → analytics and memory. The default runtime uses AI agents and private MongoDB accounts. Deterministic templates and simulated metrics exist only in explicit local demo mode; missing credentials never activate them silently.
+
+
+#Live Link : https://delph-ai-beta.vercel.app/
+#Demo Video : https://drive.google.com/drive/folders/1usKk5h5tSiF9Ss4QDDDBSPRFVs_GsV3v?usp=sharing
 
 ## Setup
 
