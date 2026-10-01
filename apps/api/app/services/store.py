@@ -113,11 +113,9 @@ class Repository:
         self.client = None
         if self.mongo:
             from pymongo import MongoClient
-            import certifi
             self.client = MongoClient(
                 os.environ["MONGODB_URI"],
                 serverSelectionTimeoutMS=10000,
-                tlsCAFile=certifi.where(),
                 retryWrites=True,
                 w='majority'
             )
