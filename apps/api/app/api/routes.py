@@ -27,6 +27,7 @@ from pathlib import Path
 load_dotenv(Path(__file__).resolve().parents[4] / ".env")
 from ..services.generation import ASSET_TYPES, DEFAULT_TYPES, DeterministicRouter
 from ..core.limits import BodyLimitMiddleware
+from ..core.deployment import allowed_origins
 from ..schemas import (ApprovalInput, AssetInput, BrandInput, BrandPatch, CampaignInput,
                       DirectionInput, EditInput, ExperimentInput, PublishInput,
                       RegenerateInput, SourceInput, MetricInput, StrategyEdit, TimelineEdit, MediaInput,
@@ -100,7 +101,8 @@ def create_app(database_url=None, agent_suite=None):
     app.state.social_publisher = publisher
     app.include_router(auth.routes())
     app.add_middleware(BodyLimitMiddleware)
-    app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:3000"), "http://127.0.0.1:3000"], allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type"], allow_credentials=True)
+    frontend_origins = allowed_origins()
+    app.add_middleware(CORSMiddleware, allow_origins=frontend_origins, allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type"], allow_credentials=True)
 
     from pymongo.errors import PyMongoError
 
@@ -117,8 +119,7 @@ def create_app(database_url=None, agent_suite=None):
     async def origin_guard(request: Request, call_next):
         if request.method in {"POST", "PATCH", "DELETE", "PUT"}:
             origin = request.headers.get("origin")
-            allowed = {os.getenv("FRONTEND_URL", "http://localhost:3000"), "http://127.0.0.1:3000"}
-            if origin and origin not in allowed:
+            if origin and origin.rstrip("/") not in frontend_origins:
                 return JSONResponse(status_code=403, content={"detail": "Request origin is not allowed."})
         return await call_next(request)
 
@@ -229,7 +230,11 @@ def create_app(database_url=None, agent_suite=None):
             raise HTTPException(409, "This is a stale asset version. Reload and review the current version.")
         return asset["versions"][-1]
 
-    @app.get("/health")
+    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+    def service_root():
+        return {"service": "Delph.ai API", "health": "/health", "docs": "/docs"}
+
+    @app.api_route("/health", methods=["GET", "HEAD"])
     def health():
         return {"status": "ok" if demo or repository.mongo else "setup-required", "mode": mode, "database": "mongodb" if repository.mongo else "sqlite-demo" if demo else "unconfigured", "authentication": not demo, "configured": demo or (repository.mongo and bool(os.getenv("GEMINI_API_KEY")))}
 
@@ -928,6 +933,7 @@ def create_app(database_url=None, agent_suite=None):
     app.include_router(social_routes(repository, auth, accounts, publisher, session, get, campaign_view, demo))
     app.include_router(job_routes(repository, auth, {"strategy": strategy, "directions": directions, "timeline": timeline, "assets": generate_asset, "insights": insights, "learnings": learnings}))
     return app
+
 
 
 app = create_app()

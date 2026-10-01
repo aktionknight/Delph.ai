@@ -17,7 +17,28 @@ Copy-Item .env.example .env
 
 Set `GEMINI_API_KEY`, `MONGODB_URI`, and `MONGODB_DATABASE`. Use MongoDB Atlas or a replica set: campaign/asset mutations use transactions and optimistic revisions, including brand dependencies during publication. Open <http://localhost:3000>; API docs: <http://127.0.0.1:8000/docs>. Register, create a brand, and add factual sources before generating strategy. New accounts have empty private workspaces. Existing SQLite demo state is not migrated automatically.
 
-The root `.env` is loaded by the API and development launcher. Restart servers after changes. Never commit credentials. For local HTTP use `COOKIE_SECURE=false`. Deployment requires HTTPS, `COOKIE_SECURE=true`, `DEMO_MODE=false`, and your exact browser origin in `FRONTEND_URL`. Set `BACKEND_URL` in the frontend build environment when building separately, because Next.js rewrites are compiled at build time. Set `DEMO_MODE=true` only for a local deterministic single-workspace demonstration.
+The root `.env` is loaded by the API and development launcher. Restart servers after changes. Never commit credentials. For local HTTP use `COOKIE_SECURE=false`. Deployment requires HTTPS, `COOKIE_SECURE=true`, `DEMO_MODE=false`, and your exact browser origin in `FRONTEND_URL` or `ALLOWED_ORIGINS`. Set `BACKEND_URL` in the frontend server environment; the `/api/*` route handler reads it at runtime and forwards to the backend's unprefixed paths. Existing `BACKEND_URL_PRODUCTION` and `NEXT_PUBLIC_API_URL` settings remain supported fallbacks. Set `DEMO_MODE=true` only for a local deterministic single-workspace demonstration.
+
+### Vercel frontend and Render backend
+
+Configure these on the platform hosting each service; setting a backend URL in Render does not configure Vercel.
+
+| Platform | Setting | Value for this deployment |
+| --- | --- | --- |
+| Vercel | Root Directory | `apps/web` |
+| Vercel | Framework | Next.js |
+| Vercel | `BACKEND_URL` | `https://delph-ai-egjc.onrender.com` |
+| Vercel | Existing alternative | `NEXT_PUBLIC_API_URL=https://delph-ai-egjc.onrender.com` is also accepted |
+| Render | `FRONTEND_URL` | `https://delph-ai-beta.vercel.app` |
+| Render | `ALLOWED_ORIGINS` | Exact comma-separated browser origins, including `https://delph-ai-beta.vercel.app` |
+| Render | `COOKIE_SECURE` / `DEMO_MODE` | `true` / `false` |
+| Render | Health Check Path | `/health` |
+
+For a repository-root Render Python service, build with `pip install -r apps/api/requirements.txt` and start with `uvicorn app.main:app --app-dir apps/api --host 0.0.0.0 --port $PORT`. If Render's Root Directory is `apps/api`, use `pip install -r requirements.txt` and omit `--app-dir apps/api`. Keep the configured MongoDB and model credentials on Render. Substitute your actual frontend hostname if it differs from this table.
+
+Redeploy both services after shipping code/configuration changes. Verify `https://delph-ai-egjc.onrender.com/health` and `https://delph-ai-beta.vercel.app/api/health`. Both should return API health JSON; private endpoints should return an authentication error until signed in. Vercel's `DNS_HOSTNAME_RESOLVED_PRIVATE` 404 indicates a rewrite toward a private address, often a leftover localhost backend default. The application now uses one API proxy and no external `/api/*` rewrite. It streams responses and retains binary downloads, multipart uploads, cookies and server error status codes. Production requests without backend configuration return an actionable 503 instead of targeting localhost.
+
+The proxy requests a 300-second function duration; effective limits depend on Vercel project/plan settings. Long background generation should use the existing jobs and streaming progress rather than assume unlimited request duration.
 
 ## Providers and credentials
 
