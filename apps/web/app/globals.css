@@ -830,20 +830,29 @@ fieldset:disabled {
   display: grid;
   grid-template-columns: 1fr 350px;
   gap: 2rem;
-  align-items: start;
+  align-items: stretch;
+  height: calc(100vh - 240px);
+}
+
+.strategy-layout > *, .form-layout > * {
+  overflow-y: auto;
+  padding-right: 0.5rem;
 }
 
 .brand-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2.5rem;
-  align-items: start;
+  align-items: stretch;
+  height: calc(100vh - 200px);
 }
 
 .brand-col {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  overflow-y: auto;
+  padding-right: 0.5rem;
 }
 @media (max-width: 900px) {
   .strategy-layout, .form-layout, .brand-layout {
@@ -2068,6 +2077,12 @@ input[type="checkbox"]:checked::before {
   grid-template-columns: 2fr 1fr;
   gap: 2rem;
   margin-top: 2rem;
+  align-items: stretch;
+  height: calc(100vh - 380px);
+}
+.analytics-layout > * {
+  overflow-y: auto;
+  padding-right: 0.5rem;
 }
 .bar-chart {
   display: flex;
