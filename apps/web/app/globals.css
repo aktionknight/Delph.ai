@@ -2077,6 +2077,24 @@ input[type="checkbox"]:checked::before {
   gap: 1.5rem;
   margin-top: 1.5rem;
   grid-template-columns: minmax(170px, .65fr) minmax(0, 2fr) minmax(230px, 1fr); 
+  height: calc(100vh - 260px);
+}
+.asset-list, .asset-main, .asset-inspector {
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  padding-bottom: 2rem;
+}
+.asset-main, .asset-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.asset-list::-webkit-scrollbar, .asset-main::-webkit-scrollbar, .asset-inspector::-webkit-scrollbar {
+  width: 6px;
+}
+.asset-list::-webkit-scrollbar-thumb, .asset-main::-webkit-scrollbar-thumb, .asset-inspector::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
 }
 .asset-list {
   display: flex;
