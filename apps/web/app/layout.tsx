@@ -17,7 +17,12 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Delph.ai — From idea to impact",
-  description: "One connected workspace for campaign strategy, content, approval, and learning."
+  description: "One connected workspace for campaign strategy, content, approval, and learning.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png"
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
