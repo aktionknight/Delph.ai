@@ -296,6 +296,9 @@ h3, h4, h5, h6 { font-weight: 600; }
   flex-direction: column;
   overflow-y: auto;
 }
+.main-content > * {
+  flex-shrink: 0;
+}
 
 .app-footer {
   display: flex;

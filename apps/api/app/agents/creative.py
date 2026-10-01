@@ -87,14 +87,16 @@ class CreativeAgent(BaseAgent):
                 progress("voiceover", "completed")
                 return raw, {"kind": kind, "mime_type": "audio/mpeg", "alt_text": "AI voiceover of current asset copy", "model": "edge-tts", "voice": asset.get("media_voice") or os.getenv("EDGE_TTS_VOICE", "en-US-AriaNeural"), "script": text, "evaluation": narration_evaluation, "narration_history": narration_history, "generation_prompt": asset.get("media_prompt", ""), "requires_human_review": True}
         if kind == "image":
-            plan = self.call(campaign, "creative", "Plan a campaign social static from evaluated copy, brand context, selected timeline day/objective and creative direction. Follow custom design instructions. Do not add claims, charts, fake testimonials or product UI. Provide accessible alt text.", media_context, VisualPlan)
             if os.getenv("IMAGE_PROVIDER", "gemini").lower() == "pollinations":
                 progress("image", "running")
-                raw, mime = pollinations_image(plan["prompt"])
+                prompt_parts = [campaign.get("goal", ""), brand.get("name", ""), media_context.get("custom_instructions", ""), media_context["copy"].get("body", ""), media_context["copy"].get("caption", "")]
+                prompt = " ".join(filter(None, prompt_parts))[:2500]
+                raw, mime = pollinations_image(prompt)
                 if not ((mime == "image/png" and raw.startswith(b"\x89PNG\r\n\x1a\n")) or (mime == "image/jpeg" and raw.startswith(b"\xff\xd8\xff"))):
                     raise AgentError("Pollinations returned an unsupported image format.")
                 progress("image", "completed")
-                return raw, {"kind": kind, "mime_type": mime, "alt_text": plan["alt_text"], "model": "pollinations/" + os.getenv("POLLINATIONS_IMAGE_MODEL", "flux"), "requires_human_review": True}
+                return raw, {"kind": kind, "mime_type": mime, "alt_text": "AI generated image from campaign copy", "model": "pollinations/" + os.getenv("POLLINATIONS_IMAGE_MODEL", "flux"), "requires_human_review": True}
+            plan = self.call(campaign, "creative", "Plan a campaign social static from evaluated copy, brand context, selected timeline day/objective and creative direction. Follow custom design instructions. Do not add claims, charts, fake testimonials or product UI. Provide accessible alt text.", media_context, VisualPlan)
             model = os.getenv("GEMINI_IMAGE_MODEL") or DEFAULT_IMAGE_MODEL
             progress("image", "running")
             image = generate_image(self.provider, self.image_pool, model, plan["prompt"], plan["alt_text"])

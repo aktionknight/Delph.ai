@@ -30,14 +30,14 @@ def rerank(query, candidates):
 
 
 def pollinations_image(prompt):
-    key = os.getenv("POLLINATIONS_API_KEY")
-    if not key:
-        raise AgentError("Set POLLINATIONS_API_KEY. The current Pollinations API requires a key; unlimited free no-key access is not assumed.")
+    pass
+    pass
+    pass
     try:
         with httpx.Client(timeout=120) as client:
-            with client.stream("GET", f"https://gen.pollinations.ai/image/{quote(prompt[:3000], safe='')}", headers={"Authorization": f"Bearer {key}"}, params={"model": os.getenv("POLLINATIONS_IMAGE_MODEL", "flux"), "width": 1024, "height": 1024, "seed": int.from_bytes(os.urandom(4), "big") % 1000000}) as response:
+            with client.stream("GET", f"https://image.pollinations.ai/prompt/{quote(prompt[:3000], safe='')}", params={"model": os.getenv("POLLINATIONS_IMAGE_MODEL", "flux"), "width": 1024, "height": 1024, "seed": int.from_bytes(os.urandom(4), "big") % 1000000, "nologo": "true"}) as response:
                 if response.status_code != 200:
-                    raise AgentError(f"Pollinations returned HTTP {response.status_code}. Check API key and available credits.")
+                    raise AgentError(f"Pollinations returned HTTP {response.status_code}. Check connection and parameters.")
                 pieces, size = [], 0
                 for piece in response.iter_bytes():
                     size += len(piece)

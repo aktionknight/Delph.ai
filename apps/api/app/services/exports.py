@@ -24,7 +24,8 @@ MIME_EXTENSIONS = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".we
                    "audio/x-wav": ".wav", "audio/ogg": ".ogg", "video/mp4": ".mp4"}
 PRIVATE_FIELDS = {"key", "storage", "blob", "owner_id", "password", "password_hash",
                   "access_token", "refresh_token", "token", "client_secret", "api_key",
-                  "authorization", "credentials", "cookie", "signed_url", "presigned_url"}
+                  "authorization", "credentials", "cookie", "signed_url", "presigned_url",
+                  "embedding", "embeddings", "chunks", "vector", "vectors", "embedding_model"}
 
 
 def public_data(value):

@@ -621,7 +621,7 @@ def create_app(database_url=None, agent_suite=None):
             raise
 
     @app.get("/assets/{asset_id}/media/{media_id}")
-    def get_media(asset_id: str, media_id: str, db: Session = Depends(session)):
+    def get_media(asset_id: str, media_id: str, download: bool = False, db: Session = Depends(session)):
         a = get(db, asset_id, "asset")
         metadata = next((media for v in a.data["versions"] for media in (v.get("media_items") or ([v["media"]] if v.get("media") else [])) if media.get("id") == media_id), None)
         if not metadata or not repository.mongo:
@@ -632,7 +632,10 @@ def create_app(database_url=None, agent_suite=None):
                 yield from iter(lambda: stream.read(65536), b"")
             finally:
                 stream.close()
-        return StreamingResponse(chunks(), media_type=metadata["mime_type"], headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+        headers = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"}
+        if download:
+            headers["Content-Disposition"] = "attachment"
+        return StreamingResponse(chunks(), media_type=metadata["mime_type"], headers=headers)
 
     def decide(asset_id, body, decision, db):
         a, asset, c, campaign, brand = asset_context(db, asset_id)
@@ -885,10 +888,19 @@ def create_app(database_url=None, agent_suite=None):
             yield 'event: complete\ndata: {"replay":true}\n\n'
         return StreamingResponse(replay(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
+    from typing import Literal
+
     @app.get("/campaigns/{campaign_id}/export")
-    def export(campaign_id: str, db: Session = Depends(session)):
-        data = campaign_view(db, get(db, campaign_id, "campaign"))
-        return JSONResponse({"mode": "local-demo" if demo else "authenticated", "generation": mode, "analytics": analytics_data(data), "campaign": data, "brand": get(db, data["brand_id"], "brand").data}, headers={"Content-Disposition": f'attachment; filename="campaign-{data["id"]}.json"'})
+    def export(campaign_id: str, format: Literal["pdf", "json"] = "pdf", auth_user=Depends(auth.user), db: Session = Depends(session)):
+        campaign_record = get(db, campaign_id, "campaign")
+        auth.require_owner(campaign_record, auth_user)
+        data = campaign_view(db, campaign_record)
+        payload = {"mode": "local-demo" if demo else "authenticated", "generation": mode, "analytics": analytics_data(data), "campaign": data, "brand": get(db, data["brand_id"], "brand").data}
+        if format == "json":
+            return JSONResponse(payload, headers={"Content-Disposition": f'attachment; filename="campaign-{data["id"]}.json"'})
+        from ..services.exports import campaign_pdf
+        pdf_file = campaign_pdf(payload, blobs, auth_user["id"])
+        return StreamingResponse(pdf_file, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="campaign-{data["id"]}.pdf"'})
 
     @app.get("/campaigns/{campaign_id}/deliverables/download")
     def download_campaign_deliverables(campaign_id: str, auth_user=Depends(auth.user), db: Session = Depends(session)):

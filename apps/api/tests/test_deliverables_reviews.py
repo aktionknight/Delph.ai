@@ -84,7 +84,7 @@ class FakeBlobs:
     def put(self, raw, owner, name, mime):
         key = str(len(self.data) + 1)
         self.data[key] = raw
-        return {"id": key, "mime_type": mime, "owner_id": owner}
+        return {"id": key, "key": key, "storage": "mongo", "mime_type": mime, "owner_id": owner}
 
     def read(self, metadata, owner):
         assert metadata["owner_id"] == owner

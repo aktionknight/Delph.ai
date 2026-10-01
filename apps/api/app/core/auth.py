@@ -38,6 +38,10 @@ class Auth:
         self.repository, self.demo = repository, demo
         self.attempts, self.lock = {}, Lock()
 
+    def require_owner(self, record, user):
+        if not self.demo and getattr(record, "data", {}).get("owner_id") != user.get("id"):
+            raise HTTPException(404, "Not found.")
+
     def limit(self, key, maximum=20):
         with self.lock:
             current = monotonic()
@@ -47,7 +51,7 @@ class Auth:
                 raise HTTPException(429, "Too many requests. Retry in a minute.")
             self.attempts[key] = (start, count + 1)
 
-    def user(self, request):
+    def user(self, request: Request):
         if self.demo:
             return {"id": "demo", "name": "Local demo", "email": "", "demo": True}
         if not self.repository.mongo:

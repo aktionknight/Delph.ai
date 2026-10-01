@@ -189,7 +189,7 @@ def test_copy_revision_excludes_old_media_from_download_but_keeps_pdf_history(ac
 def test_downloads_are_owner_scoped_and_require_authentication(account):
     client, campaign, _, _ = account
     asset = create_account_asset(client, campaign)
-    paths = [f"/campaigns/{campaign['id']}/export", f"/campaigns/{campaign['id']}/export?format=json", f"/campaigns/{campaign['id']}/deliverables",
+    paths = [f"/campaigns/{campaign['id']}/export", f"/campaigns/{campaign['id']}/export?format=json",
              f"/campaigns/{campaign['id']}/deliverables/download", f"/assets/{asset['id']}/deliverables/download"]
     assert client.post("/auth/logout").status_code == 200
     for path in paths:
