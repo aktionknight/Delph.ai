@@ -1,18 +1,28 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Noto_Sans } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const notoSans = Noto_Sans({
+  subsets: ["latin"],
+  variable: "--font-noto-sans",
+  weight: "variable",
+  display: "swap"
+});
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
-  title: "Campaign Launchpad — From idea to impact",
+  title: "Delph.ai — From idea to impact",
   description: "One connected workspace for campaign strategy, content, approval, and learning."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.className}>
+    <html lang="en" className={`${notoSans.variable} ${inter.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>

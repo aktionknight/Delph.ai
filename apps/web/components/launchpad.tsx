@@ -20,7 +20,7 @@ export function Launchpad() {
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to main content</a>
     <aside className="sidebar">
-      <Link href="/" className="brand-logo"><span className="logo-mark"><Rocket size={22} /></span><span>launchpad<span className="logo-dot">.</span></span></Link>
+      <Link href="/" className="brand-logo"><span className="logo-mark"><img src="/logo.png" alt="Delph.ai Logo" width={22} height={22} style={{ objectFit: 'contain' }} /></span><span>Delph.ai</span></Link>
       <div className="workspace-picker"><span className="workspace-avatar">CL</span><div><strong>Campaign workspace</strong><small>Your campaign workspace</small></div></div>
       <p className="nav-label">WORKSPACE</p>
       <nav aria-label="Main navigation"><Link href="/" className={path === "/" ? "nav-link active" : "nav-link"}><LayoutDashboard size={18} /> Overview</Link><Link href="/campaigns" className={path.startsWith("/campaigns") ? "nav-link active" : "nav-link"}><FolderKanban size={18} /> Campaigns<span className="nav-count">{campaigns.data?.length ?? "—"}</span></Link><Link href="/brands" className={path.startsWith("/brands") ? "nav-link active" : "nav-link"}><Brain size={18} /> Brand Brain</Link><Link href="/profile" className={path === "/profile" ? "nav-link active" : "nav-link"}><User size={18} /> Profile</Link></nav>
@@ -30,7 +30,7 @@ export function Launchpad() {
     <div className="main-shell"><header className="topbar"><span className="breadcrumb">Workspace <ChevronRight size={14} /> <strong>{isCampaign ? "Campaign workspace" : path === "/brands" ? "Brand Brain" : path === "/profile" ? "Profile" : path === "/campaigns/new" ? "New campaign" : path === "/campaigns" ? "Campaigns" : "Overview"}</strong></span><div className="topbar-right"><Badge tone="green"><span className="tiny-dot" /> {health.data?.mode === "deterministic" ? "Deterministic demo" : "Gemini AI agents"}</Badge></div></header>
       <main id="main" className="main-content">
         {path === "/campaigns/new" ? <NewCampaign brands={brands.data || []} loading={brands.isPending} error={brands.error} /> : path === "/brands" ? <BrandBrain brands={brands.data || []} loading={brands.isPending} error={brands.error} /> : path === "/profile" ? <UserProfile /> : isCampaign ? <Workspace id={campaignId} brands={brands.data || []} /> : path === "/" || path === "/campaigns" ? <Dashboard campaigns={campaigns.data || []} loading={campaigns.isPending} error={campaigns.error} retry={() => void campaigns.refetch()} /> : <Empty title="Page not found" action={<Link className="button primary" href="/">Back to overview</Link>}>This workspace page does not exist.</Empty>}
-      </main><footer className="app-footer"><Command size={13} /> Campaign Launchpad <span>Built for thoughtful launches.</span><span className="footer-disclaimer">Human approval required · no automatic social publishing</span></footer>
+      </main><footer className="app-footer"><Command size={13} /> Delph.ai <span>Built for thoughtful launches.</span><span className="footer-disclaimer">Human approval required · no automatic social publishing</span></footer>
     </div>
   </div>;
 }
