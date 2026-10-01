@@ -30,9 +30,8 @@ def rerank(query, candidates):
 
 
 def pollinations_image(prompt):
-    pass
-    pass
-    pass
+    if not os.getenv("POLLINATIONS_API_KEY"):
+        raise AgentError("Pollinations image generation requires a key.")
     try:
         with httpx.Client(timeout=120) as client:
             with client.stream("GET", f"https://image.pollinations.ai/prompt/{quote(prompt[:3000], safe='')}", params={"model": os.getenv("POLLINATIONS_IMAGE_MODEL", "flux"), "width": 1024, "height": 1024, "seed": int.from_bytes(os.urandom(4), "big") % 1000000, "nologo": "true"}) as response:
