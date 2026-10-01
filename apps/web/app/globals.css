@@ -18,7 +18,8 @@
   --warning-bg: rgba(251, 191, 36, 0.12);
   --danger: #f87171;
   --danger-bg: rgba(248, 113, 113, 0.12);
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-noto-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-accent: var(--font-inter), var(--font-sans);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
@@ -37,6 +38,7 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 14px;
+  font-weight: 400;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -49,6 +51,14 @@ a {
 button, input, textarea, select {
   font: inherit;
   color: inherit;
+}
+
+h1 { font-weight: 800; }
+h2 { font-weight: 700; }
+h3, h4, h5, h6 { font-weight: 600; }
+
+.brand-logo, .nav-label, .eyebrow, .label, .badge {
+  font-family: var(--font-accent);
 }
 
 /* App Shell */
@@ -302,7 +312,7 @@ button, input, textarea, select {
 }
 .page-heading h1 {
   font-size: 1.75rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.02em;
 }
 .eyebrow {
@@ -1427,6 +1437,93 @@ aside .panel {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin: 0.5rem 0;
+}
+
+/* Forms & Native Elements Polish */
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+input, textarea, select {
+  font-family: inherit;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.2);
+}
+
+select {
+  appearance: none;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 16px;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+select option {
+  background: var(--bg-default);
+  color: var(--text-primary);
+}
+
+input[type="checkbox"] {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-card);
+  display: grid;
+  place-content: center;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 0.75em;
+  height: 0.75em;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+  background-color: var(--bg-default);
+  transform-origin: center;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
 }
 
 /* Responsive Utilities */
