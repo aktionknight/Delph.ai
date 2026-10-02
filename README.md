@@ -1,6 +1,6 @@
 ﻿# Delph.ai - The Social Media Content Suite
 
-## Who is it for ?
+# Who is it for ?
 Delph.ai is an All-In-One suite which covers all aspects of what makes up a social media team. From Brand Ideation to content planning and strategy to Asset generation, It covers all from ideation to creation of campaigns. Upload a brand book, Understand the brand, Retrieve a launch timeline, Connect your social media app and publish + Track metrics of your created posts ; Delph.ai has your brand covered. 
 
 Using AI orchestrated Agents for each task, evaluate your ideas, Fine Tune them and create a launch strategy and manage your assets and campaigns all in one platform.
