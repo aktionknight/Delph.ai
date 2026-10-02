@@ -1,11 +1,36 @@
 ﻿# Delph.ai - The Social Media Content Suite
 
-The Platform : 
+##Who is it for ?
+Delph.ai is an All-In-One suite which covers all aspects of what makes up a social media team. From Brand Ideation to content planning and strategy to Asset generation, It covers all from ideation to creation of campaigns. Upload a brand book, Understand the brand, Retrieve a launch timeline, Connect your social media app and publish + Track metrics of your created posts ; Delph.ai has your brand covered. 
+
+Using AI orchestrated Agents for each task, evaluate your ideas, Fine Tune them and create a launch strategy and manage your assets and campaigns all in one platform.
+
+#The Platform : 
 A connected campaign workspace: brand documents → strategy → creative direction → timeline → content → evaluation and repair → human approval → experiments → analytics and memory. The default runtime uses AI agents and private MongoDB accounts. Deterministic templates and simulated metrics exist only in explicit local demo mode; missing credentials never activate them silently.
 
 
 #Live Link : https://delph-ai-beta.vercel.app/
 #Demo Video : https://drive.google.com/drive/folders/1usKk5h5tSiF9Ss4QDDDBSPRFVs_GsV3v?usp=sharing
+
+
+## Workflow
+
+1. Register/sign in; edit name, company, bio and timezone from the profile editor.
+2. Add brand voice, approved claims, forbidden phrases and text/PDF sources. Uploads are limited to 5 MiB, 50 PDF pages and 100,000 extracted characters; a brand is limited to 750,000 source characters. Scanned PDFs need external OCR. Original uploaded files are private in account mode; chunks/embeddings live in MongoDB.
+3. Generate strategy, review assumptions and source references, and choose a direction. Strategy edits retain history and clear the timeline; existing asset versions retain their generation context.
+4. Generate/rebalance the timeline and edit items. In Content canvas, choose a social platform and scheduled deliverable. New text, captions, statics and narration inherit that item's day, stage and objective. Instagram captions are separate from Reel narration. X posts validate their complete published text against 280 characters. Assets retain their original timeline snapshot after schedule edits; create replacement deliverables when their placement changes.
+5. The AI evaluator checks grounding, brand fit, platform fit, audience fit, claim safety and completeness alongside fixed safety/format validators. LangGraph permits at most two Creative repair attempts. All drafts/evaluations remain visible; exhausted failures become `needs_human_review` and remain blocked from approval and publication.
+6. Edits/regeneration create immutable versions and invalidate approval. Current brand guardrails are checked again at approval and publication.
+7. Add design instructions to generate a static from evaluated copy and brand/timeline context. For Instagram, choose a neural voice or the configured server default and generate spoken narration from the current copy. Narration has its own grounding/evaluation and up to two drafts before synthesis. Image and audio coexist on the current immutable version. Preview/listen and explicitly confirm review of all media before approval. Text edits discard stale media from the new version while preserving history. Automatic evaluation does not assess visual accuracy or speech fidelity. Image generation requires the backend Pollinations key.
+8. Generate hook comparisons from an approved asset, optionally with custom experiment instructions. AI variants start with zero results and separate evaluations; drafts are not approved or published. Import cumulative results with an evidence reference; prior snapshots remain in history.
+9. Generate AI analytics and evidence-linked learnings. Save selected learnings to Brand Brain. Historical learnings inform strategy as hypotheses and are excluded from factual product claims.
+
+Custom prompt fields accompany strategy, creative direction, timeline, canvas copy, static design, narration, comparisons, analytics and learnings. They guide style and focus within brand grounding, safety and format constraints. Brief edits, manual planning edits and reviewer-driven AI revisions are available in the Approvals section. Optional human section reviews retain decision/feedback history for brief, strategy, direction, timeline, insights and learnings; review the new revision after edits or generation. These planning reviews do not replace explicit current-version content/media approval. Existing unmapped assets remain readable, but media generation requires a newly timeline-linked deliverable.
+
+Background agent operations persist job status and stream live SSE progress. A campaign allows one active background job at a time. Execution uses FastAPI background tasks in the server process, not a distributed queue. Failed/abandoned jobs remain inspectable; jobs without progress for 15 minutes are marked failed. After a disconnected stream, reload before retrying. `/jobs/{id}/stream` provides live progress; campaign `/stream` remains saved trace replay.
+
+Publication records workflow status and does not post to social networks. Social OAuth/posting and automatic analytics need platform-specific credentials, permissions and adapters. AI agents never invent real performance.
+
 
 ## Setup
 
@@ -71,24 +96,6 @@ Safety blocks and invalid credentials/request configuration stop immediately. A 
 [Pollinations' current API](https://gen.pollinations.ai/docs) uses a key; unlimited free no-key access is not assumed. [Cohere trial usage](https://docs.cohere.com/docs/how-does-cohere-pricing-work) is free but limited. [Edge TTS](https://github.com/rany2/edge-tts) is an unofficial online service integration without an API key; availability and usage rights are not guaranteed by this project. [R2 Standard storage](https://developers.cloudflare.com/r2/pricing/) includes 10 GB-month plus operation allowances with free direct egress; excess usage can cost money. MongoDB replaces Neon/Supabase and pgvector in this implementation.
 
 Image requests call Pollinations' current [image API](https://gen.pollinations.ai/docs) directly using a server-side `POLLINATIONS_API_KEY` (Bearer authentication). Set that secret in the backend deployment environment and redeploy; never put it in a frontend variable. `POLLINATIONS_IMAGE_MODEL` defaults to `flux`. Availability, quotas and pricing depend on the Pollinations account and selected model. Returned content is size-limited and restricted to verified PNG/JPEG files. Image generation does not invoke Gemini text or embeddings; Gemini remains available for text, narration and retrieval.
-
-## Workflow
-
-1. Register/sign in; edit name, company, bio and timezone from the profile editor.
-2. Add brand voice, approved claims, forbidden phrases and text/PDF sources. Uploads are limited to 5 MiB, 50 PDF pages and 100,000 extracted characters; a brand is limited to 750,000 source characters. Scanned PDFs need external OCR. Original uploaded files are private in account mode; chunks/embeddings live in MongoDB.
-3. Generate strategy, review assumptions and source references, and choose a direction. Strategy edits retain history and clear the timeline; existing asset versions retain their generation context.
-4. Generate/rebalance the timeline and edit items. In Content canvas, choose a social platform and scheduled deliverable. New text, captions, statics and narration inherit that item's day, stage and objective. Instagram captions are separate from Reel narration. X posts validate their complete published text against 280 characters. Assets retain their original timeline snapshot after schedule edits; create replacement deliverables when their placement changes.
-5. The AI evaluator checks grounding, brand fit, platform fit, audience fit, claim safety and completeness alongside fixed safety/format validators. LangGraph permits at most two Creative repair attempts. All drafts/evaluations remain visible; exhausted failures become `needs_human_review` and remain blocked from approval and publication.
-6. Edits/regeneration create immutable versions and invalidate approval. Current brand guardrails are checked again at approval and publication.
-7. Add design instructions to generate a static from evaluated copy and brand/timeline context. For Instagram, choose a neural voice or the configured server default and generate spoken narration from the current copy. Narration has its own grounding/evaluation and up to two drafts before synthesis. Image and audio coexist on the current immutable version. Preview/listen and explicitly confirm review of all media before approval. Text edits discard stale media from the new version while preserving history. Automatic evaluation does not assess visual accuracy or speech fidelity. Image generation requires the backend Pollinations key.
-8. Generate hook comparisons from an approved asset, optionally with custom experiment instructions. AI variants start with zero results and separate evaluations; drafts are not approved or published. Import cumulative results with an evidence reference; prior snapshots remain in history.
-9. Generate AI analytics and evidence-linked learnings. Save selected learnings to Brand Brain. Historical learnings inform strategy as hypotheses and are excluded from factual product claims.
-
-Custom prompt fields accompany strategy, creative direction, timeline, canvas copy, static design, narration, comparisons, analytics and learnings. They guide style and focus within brand grounding, safety and format constraints. Brief edits, manual planning edits and reviewer-driven AI revisions are available in the Approvals section. Optional human section reviews retain decision/feedback history for brief, strategy, direction, timeline, insights and learnings; review the new revision after edits or generation. These planning reviews do not replace explicit current-version content/media approval. Existing unmapped assets remain readable, but media generation requires a newly timeline-linked deliverable.
-
-Background agent operations persist job status and stream live SSE progress. A campaign allows one active background job at a time. Execution uses FastAPI background tasks in the server process, not a distributed queue. Failed/abandoned jobs remain inspectable; jobs without progress for 15 minutes are marked failed. After a disconnected stream, reload before retrying. `/jobs/{id}/stream` provides live progress; campaign `/stream` remains saved trace replay.
-
-Publication records workflow status and does not post to social networks. Social OAuth/posting and automatic analytics need platform-specific credentials, permissions and adapters. AI agents never invent real performance.
 
 ### Deliverables and campaign downloads
 
