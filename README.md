@@ -6,6 +6,7 @@ Delph.ai is an All-In-One suite which covers all aspects of what makes up a soci
 Using AI orchestrated Agents for each task, evaluate your ideas, Fine Tune them and create a launch strategy and manage your assets and campaigns all in one platform.
 
 # The Platform : 
+(Currently all services utilize Free-Tier AI models and API's so Gemini Images/Videos and Instagram/X publishing support isn't available)
 A connected campaign workspace: brand documents → strategy → creative direction → timeline → content → evaluation and repair → human approval → experiments → analytics and memory. The default runtime uses AI agents and private MongoDB accounts. Deterministic templates and simulated metrics exist only in explicit local demo mode; missing credentials never activate them silently.
 
 
